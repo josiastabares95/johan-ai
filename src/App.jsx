@@ -496,6 +496,7 @@ export default function App() {
   };
 
 
+  const handleEvolveLearning = async () => {
     try {
       const result = await evolveLearning();
       setConnectionStatus("online");
@@ -637,3 +638,4 @@ export default function App() {
     </div>
   );
 }
+
