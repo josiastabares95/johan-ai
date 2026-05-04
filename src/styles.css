@@ -1163,6 +1163,7 @@ button {
   font-size: 13px;
 }
 
+.smart-form,
 .financial-form-card,
 .onboarding-card {
   display: grid;
@@ -1174,6 +1175,11 @@ button {
   padding: 12px;
 }
 
+.smart-form {
+  max-width: 680px;
+}
+
+.smart-form > span,
 .financial-form-card > span {
   color: var(--green);
   font-size: 12px;
@@ -1181,6 +1187,13 @@ button {
   text-transform: uppercase;
 }
 
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.form-field,
 .financial-form-card label {
   display: grid;
   gap: 6px;
@@ -1189,9 +1202,11 @@ button {
   font-weight: 800;
 }
 
+.smart-form input,
+.smart-form select,
 .financial-form-card input,
 .financial-form-card select {
-  min-height: 38px;
+  min-height: 34px;
   min-width: 0;
   border: 1px solid var(--line-strong);
   border-radius: 10px;
@@ -1202,6 +1217,7 @@ button {
 }
 
 .form-actions,
+.quick-replies,
 .onboarding-card div,
 .manual-add-bar {
   display: flex;
@@ -1210,6 +1226,7 @@ button {
 }
 
 .form-actions button,
+.quick-replies button,
 .onboarding-card button,
 .manual-add-bar button {
   min-height: 34px;
@@ -1228,6 +1245,108 @@ button {
   border: 0;
   background: var(--green);
   color: #06130d;
+}
+
+.main-goal-mini {
+  display: grid;
+  gap: 5px;
+  border: 1px solid rgba(0, 255, 153, 0.2);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.16);
+  padding: 10px;
+}
+
+.main-goal-mini span,
+.main-goal-mini p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.main-goal-mini strong {
+  color: var(--green);
+}
+
+.debt-row-button {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  padding: 10px;
+  text-align: left;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.72);
+  padding: 18px;
+}
+
+.calendar-modal {
+  display: grid;
+  gap: 14px;
+  width: min(720px, 100%);
+  max-height: min(760px, 90vh);
+  overflow-y: auto;
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  background: #111;
+  padding: 18px;
+}
+
+.calendar-modal header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.calendar-modal h2 {
+  margin: 0;
+}
+
+.calendar-modal button {
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--panel-soft);
+  color: var(--text);
+  padding: 8px 12px;
+}
+
+.calendar-events {
+  display: grid;
+  gap: 8px;
+}
+
+.calendar-events article {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 10px;
+}
+
+.calendar-events span,
+.calendar-events p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+@media (max-width: 720px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .manual-add-bar {

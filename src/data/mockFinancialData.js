@@ -11,6 +11,19 @@ export const mockFinancialData = {
     name: "Casa Colombia",
     saved: 0
   },
+  mainGoal: {
+    name: "Casa Colombia",
+    targetAmount: 0,
+    savedAmount: 0,
+    targetDate: null,
+    priority: "high",
+    monthlyNeeded: 0,
+    weeklyNeeded: 0,
+    dailyNeeded: 0
+  },
+  incomeSources: [],
+  recurringPayments: [],
+  profile: {},
   transactions: [],
   conversationMemory: [],
   decisions: [],
@@ -55,6 +68,9 @@ export const mockFinancialData = {
   onboarding: {
     status: "not_started",
     completed: false,
+    mode: null,
+    step: "start",
+    answers: {},
     flow: null,
     currentStep: null,
     collected: {},

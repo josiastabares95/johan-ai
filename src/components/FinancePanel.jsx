@@ -56,6 +56,8 @@ export default function FinancePanel({
   dailyMission,
   simulation,
   isSimulating,
+  onEditDebt,
+  onOpenCalendar,
   onSimulate
 }) {
   const data = {
@@ -98,6 +100,17 @@ export default function FinancePanel({
 
       <section className="daily-summary-card">
         <p>{daily.greeting}</p>
+        {daily.mainGoal && (
+          <div className="main-goal-mini">
+            <span>🎯 Objetivo principal</span>
+            <strong>{daily.mainGoal.name}</strong>
+            <p>
+              Faltan {currencyFormatter.format(daily.goalRemaining || 0)} · Hoy{" "}
+              {currencyFormatter.format(daily.mainGoal.dailyNeeded || 0)} · Semana{" "}
+              {currencyFormatter.format(daily.mainGoal.weeklyNeeded || 0)}
+            </p>
+          </div>
+        )}
         <div className="daily-summary-grid">
           <div>
             <span>Seguro para gastar</span>
@@ -273,10 +286,10 @@ export default function FinancePanel({
         </div>
         {data.debts.length > 0 ? (
           data.debts.map((debt) => (
-            <div key={`${debt.name}-${debt.amount}`}>
+            <button className="debt-row-button" key={`${debt.name}-${debt.amount}`} type="button" onClick={() => onEditDebt(debt)}>
               <span>{debt.name || "Deuda"}</span>
               <strong>{currencyFormatter.format(Number(debt.amount || 0))}</strong>
-            </div>
+            </button>
           ))
         ) : (
           <p>No hay deudas registradas.</p>
@@ -284,6 +297,9 @@ export default function FinancePanel({
       </section>
 
       <section className="simulation-card">
+        <button type="button" onClick={onOpenCalendar}>
+          📅 Calendario
+        </button>
         <button disabled={isSimulating} type="button" onClick={onSimulate}>
           {isSimulating ? "Simulando..." : "Simular futuro"}
         </button>

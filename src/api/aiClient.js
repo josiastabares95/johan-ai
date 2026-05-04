@@ -1,4 +1,4 @@
-const API_BASE_URL = "https://johan-ai-backend.onrender.com";
+const API_BASE_URL = "/api";
 
 let authToken = localStorage.getItem("johanAuthToken") || "";
 
@@ -118,6 +118,9 @@ export async function askJohanAI(question, financialData) {
     dailyMission: data.dailyMission || data.financialData?.dailyMission || null,
     pendingAction: isAdvisoryResponse ? null : data.pendingAction || null,
     pendingForm: data.pendingForm || null,
+    formData: data.formData || null,
+    onboardingReview: data.onboardingReview || false,
+    quickReplies: data.quickReplies || [],
     relevantMemory: data.relevantMemory || [],
     mistakes: data.mistakes || data.financialData?.mistakes || [],
     learningProfile: data.learningProfile || data.financialData?.learningProfile || null,
@@ -134,7 +137,7 @@ export async function askJohanAI(question, financialData) {
 export function updateOnboarding(action, data = {}) {
   return requestJson("/onboarding", {
     method: "POST",
-    body: JSON.stringify({ action, data })
+    body: JSON.stringify({ action, mode: action, data })
   });
 }
 

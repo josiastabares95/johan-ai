@@ -36,6 +36,18 @@ const defaultFinancialState = {
     name: "Casa Colombia",
     saved: 0
   },
+  mainGoal: {
+    name: "Casa Colombia",
+    targetAmount: 0,
+    savedAmount: 0,
+    targetDate: null,
+    priority: "high",
+    monthlyNeeded: 0,
+    weeklyNeeded: 0,
+    dailyNeeded: 0
+  },
+  incomeSources: [],
+  profile: {},
   transactions: [],
   conversationMemory: [],
   decisions: [],
@@ -83,6 +95,9 @@ const defaultFinancialState = {
   onboarding: {
     status: "not_started",
     completed: false,
+    mode: null,
+    step: "start",
+    answers: {},
     flow: null,
     currentStep: null,
     collected: {},
@@ -441,6 +456,9 @@ function normalizeFinancialState(state) {
       ...safeState.goal,
       saved: roundMoney(Number(safeState.goal?.saved || 0))
     },
+    mainGoal: normalizeMainGoal(safeState.mainGoal || safeState.goal || defaultFinancialState.mainGoal),
+    incomeSources: Array.isArray(safeState.incomeSources) ? safeState.incomeSources : [],
+    profile: safeState.profile || {},
     transactions: Array.isArray(safeState.transactions) ? safeState.transactions.slice(0, 100) : [],
     conversationMemory: Array.isArray(safeState.conversationMemory)
       ? safeState.conversationMemory.slice(-10)
@@ -516,6 +534,9 @@ function normalizeFinancialState(state) {
       ...defaultFinancialState.onboarding,
       ...safeState.onboarding,
       completed: Boolean(safeState.onboarding?.completed),
+      mode: safeState.onboarding?.mode || safeState.onboarding?.flow || null,
+      step: safeState.onboarding?.step || safeState.onboarding?.currentStep || "start",
+      answers: safeState.onboarding?.answers || safeState.onboarding?.collected || {},
       collected: safeState.onboarding?.collected || {},
       futureSteps: Array.isArray(safeState.onboarding?.futureSteps)
         ? safeState.onboarding.futureSteps
@@ -534,6 +555,33 @@ function dedupeByKey(items, getKey) {
     seen.add(key);
     return true;
   });
+}
+
+function normalizeMainGoal(goal = {}) {
+  const targetAmount = roundMoney(Number(goal.targetAmount || goal.amount || 0));
+  const savedAmount = roundMoney(Number(goal.savedAmount || goal.saved || 0));
+  const targetDate = goal.targetDate || null;
+  const remaining = Math.max(0, targetAmount - savedAmount);
+  let dailyNeeded = 0;
+
+  if (targetDate && remaining > 0) {
+    const days = Math.max(
+      1,
+      Math.ceil((new Date(targetDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    );
+    dailyNeeded = roundMoney(remaining / days);
+  }
+
+  return {
+    name: goal.name || "Casa Colombia",
+    targetAmount,
+    savedAmount,
+    targetDate,
+    priority: goal.priority || "high",
+    monthlyNeeded: roundMoney(dailyNeeded * 30),
+    weeklyNeeded: roundMoney(dailyNeeded * 7),
+    dailyNeeded
+  };
 }
 
 function pruneBackups() {
@@ -696,6 +744,158 @@ function findDebtNameInQuestion(question) {
     const name = normalizeMemoryText(d.name);
     return name && normalizedQuestion.includes(name);
   });
+}
+
+function detectAdministrativeAction(question) {
+  const text = normalizeMemoryText(question);
+  const targetDebt = findDebtNameInQuestion(question);
+  if (
+    ["eliminar deuda", "borrar deuda", "quitar deuda"].some((phrase) => text.includes(phrase)) ||
+    (targetDebt && ["eliminar", "borrar", "quitar"].some((phrase) => text.includes(phrase)))
+  ) {
+    return { type: "delete_debt", debt: targetDebt || null };
+  }
+  if (
+    ["modificar deuda", "editar deuda", "actualizar deuda", "cambiar pago minimo", "cambiar fecha"].some((phrase) =>
+      text.includes(phrase)
+    ) ||
+    (targetDebt && ["modificar", "editar", "actualizar", "corregir", "cambiar"].some((phrase) => text.includes(phrase)))
+  ) {
+    return { type: "edit_debt", debt: targetDebt || null };
+  }
+  if (["agregar deuda", "nueva deuda", "tengo una deuda nueva"].some((phrase) => text.includes(phrase))) {
+    return { type: "form", form: "debt" };
+  }
+  if (["agregar gasto", "gasto nuevo"].some((phrase) => text.includes(phrase))) {
+    return { type: "form", form: "expense" };
+  }
+  if (["agregar ingreso", "ingreso nuevo"].some((phrase) => text.includes(phrase))) {
+    return { type: "form", form: "income" };
+  }
+  return null;
+}
+
+const onboardingSteps = [
+  "income",
+  "credit_cards",
+  "debts",
+  "vehicle",
+  "housing",
+  "utilities",
+  "food",
+  "transport",
+  "goals",
+  "review"
+];
+
+const onboardingQuestions = {
+  income: "💰 ¿Cuáles son tus fuentes de ingreso y cuánto ganas aproximadamente por semana o por mes?",
+  credit_cards:
+    "💳 ¿Tienes tarjetas de crédito? Dime nombre, deuda, límite, pago mínimo, interés y fecha de pago si lo sabes.",
+  debts: "🧾 Además de tarjetas, ¿tienes otras deudas?",
+  vehicle: "🚗 ¿Tienes carro o moto? ¿Lo debes todavía? ¿Cuánto pagas, cuánto falta y qué día se paga?",
+  housing: "🏠 ¿Cuánto pagas de renta o vivienda? ¿Qué día se paga?",
+  utilities: "📶 ¿Cuánto pagas de servicios, celular, internet, suscripciones o seguros?",
+  food: "🛒 ¿Cuánto gastas normalmente en mercado y comida por semana?",
+  transport: "⛽ ¿Cuánto gastas en gasolina o transporte por semana?",
+  goals: "🎯 ¿Cuál es tu meta principal? Por defecto Casa Colombia. Dime monto objetivo y fecha ideal si la tienes."
+};
+
+function startAiOnboarding() {
+  financialState.onboarding = {
+    ...financialState.onboarding,
+    completed: false,
+    mode: "ai_test",
+    step: "income",
+    answers: financialState.onboarding?.answers || {},
+    status: "in_progress",
+    updatedAt: new Date().toISOString()
+  };
+  saveFinancialState();
+  return {
+    answer:
+      "🔥 Perfecto, vamos paso a paso. Primero necesito saber tus ingresos.\n¿Cuáles son tus fuentes de ingreso actualmente?\nEjemplo: trabajo, Instawork, Amazon Flex, efectivo, Zelle, otro.",
+    onboarding: financialState.onboarding
+  };
+}
+
+function buildOnboardingReview() {
+  const answers = financialState.onboarding?.answers || {};
+  return [
+    "🧾 Este es el resumen que tengo hasta ahora:",
+    `Ingresos: ${answers.income || "pendiente"}`,
+    `Tarjetas: ${answers.credit_cards || "pendiente"}`,
+    `Deudas: ${answers.debts || "pendiente"}`,
+    `Carro/moto: ${answers.vehicle || "pendiente"}`,
+    `Vivienda: ${answers.housing || "pendiente"}`,
+    `Servicios: ${answers.utilities || "pendiente"}`,
+    `Comida: ${answers.food || "pendiente"}`,
+    `Transporte: ${answers.transport || "pendiente"}`,
+    `Meta: ${answers.goals || "Casa Colombia"}`,
+    "",
+    "¿Quieres guardar este perfil financiero?"
+  ].join("\n");
+}
+
+function handleAiOnboardingAnswer(question) {
+  const onboarding = financialState.onboarding || {};
+  const currentStep = onboarding.step || "income";
+
+  if (currentStep === "review") {
+    return {
+      answer: buildOnboardingReview(),
+      onboardingReview: true,
+      financialData: financialState
+    };
+  }
+
+  financialState.onboarding.answers = {
+    ...(financialState.onboarding.answers || {}),
+    [currentStep]: String(question || "").trim()
+  };
+
+  const nextStep = onboardingSteps[onboardingSteps.indexOf(currentStep) + 1] || "review";
+  financialState.onboarding.step = nextStep;
+  financialState.onboarding.updatedAt = new Date().toISOString();
+
+  const answer = nextStep === "review" ? buildOnboardingReview() : onboardingQuestions[nextStep];
+  saveFinancialState();
+
+  return {
+    answer,
+    onboarding: financialState.onboarding,
+    onboardingReview: nextStep === "review",
+    quickReplies: nextStep === "review" ? ["Guardar perfil", "Corregir algo", "Completar después"] : ["Sí", "No", "No sé", "Después"]
+  };
+}
+
+function saveOnboardingProfile() {
+  const answers = financialState.onboarding?.answers || {};
+  financialState.incomeSources = [{ description: answers.income || "", createdAt: new Date().toISOString() }];
+  financialState.recurringPayments = [
+    { type: "housing", description: answers.housing || "", createdAt: new Date().toISOString() },
+    { type: "utilities", description: answers.utilities || "", createdAt: new Date().toISOString() },
+    { type: "food", description: answers.food || "", createdAt: new Date().toISOString() },
+    { type: "transport", description: answers.transport || "", createdAt: new Date().toISOString() }
+  ].filter((item) => item.description);
+  financialState.profile = {
+    creditCards: answers.credit_cards || "",
+    debts: answers.debts || "",
+    vehicle: answers.vehicle || ""
+  };
+  financialState.mainGoal = normalizeMainGoal({
+    ...financialState.mainGoal,
+    name: answers.goals || financialState.mainGoal?.name || "Casa Colombia"
+  });
+  financialState.onboarding.completed = true;
+  financialState.onboarding.status = "completed";
+  financialState.onboarding.step = "review";
+  saveFinancialState();
+  return {
+    answer:
+      "✅ Listo. Ya tengo tu base financiera. Ahora puedo ayudarte a decidir cuánto gastar, qué pagar primero y cómo avanzar hacia Casa Colombia.",
+    financialData: financialState
+  };
 }
 
 function buildPendingFormResponse(formType, question = "") {
@@ -1431,6 +1631,9 @@ function buildDailySummary() {
   const safeToSpend = calculateSafeToSpendToday();
   const urgentDebt = getUrgentDebt();
   const primaryAlert = getPrimaryAlert();
+  financialState.mainGoal = normalizeMainGoal(financialState.mainGoal || financialState.goal);
+  const mainGoal = financialState.mainGoal;
+  const goalRemaining = roundMoney(Math.max(0, Number(mainGoal.targetAmount || 0) - Number(mainGoal.savedAmount || 0)));
 
   return {
     greeting: `Hey Johan, hoy estas en modo ${financialState.mode}.`,
@@ -1440,6 +1643,8 @@ function buildDailySummary() {
     urgentDebt,
     dailyMission: financialState.dailyMission || null,
     goal: financialState.goal || defaultFinancialState.goal,
+    mainGoal,
+    goalRemaining,
     primaryAlert,
     suggestions:
       safeToSpend <= 0
@@ -1493,6 +1698,8 @@ function buildFinancialBrainResponse(question, state, processed = {}) {
   const totalDebt = getTotalDebt();
   const urgentDebt = getUrgentDebt();
   const goalName = state.goal?.name || "Casa Colombia";
+  const mainGoal = normalizeMainGoal(state.mainGoal || state.goal);
+  const goalRemaining = roundMoney(Math.max(0, Number(mainGoal.targetAmount || 0) - Number(mainGoal.savedAmount || 0)));
   const primaryAlert = getPrimaryAlert();
   const transactions = getTransactionsForQuestion(question);
   const spentInScope = transactions
@@ -1589,8 +1796,13 @@ function buildFinancialBrainResponse(question, state, processed = {}) {
     .filter(Boolean)
     .join(" ");
 
+  const goalLine =
+    mainGoal.targetAmount > 0
+      ? `🎯 Objetivo ${mainGoal.name}: faltan $${goalRemaining}. Hoy deberias acercarte con $${mainGoal.dailyNeeded || 0}, esta semana $${mainGoal.weeklyNeeded || 0}.`
+      : `🎯 Objetivo principal: ${mainGoal.name}. Define un monto objetivo para calcular el ritmo exacto.`;
+
   return {
-    answer: `${answer}\n\nPor que: ${why}`,
+    answer: `${answer}\n\n${goalLine}\n\nPor que: ${why}`,
     decision,
     riskLevel,
     safeToSpend,
@@ -1689,8 +1901,11 @@ function applyFinancialEntry(type, payload = {}) {
   }
 
   if (type === "debt") {
+    const existingDebt = payload.id
+      ? (financialState.debts || []).find((debt) => debt.id === payload.id || debt.name === payload.id)
+      : null;
     const debt = {
-      id: crypto.randomUUID(),
+      id: existingDebt?.id || crypto.randomUUID(),
       name: String(payload.name).trim(),
       type: payload.debtType || "Otro",
       amount: roundMoney(Number(payload.amount || 0)),
@@ -1699,10 +1914,12 @@ function applyFinancialEntry(type, payload = {}) {
       dueDate: payload.dueDate,
       apr: payload.apr ? Number(payload.apr) : null,
       note: payload.note || "",
-      createdAt: now,
+      createdAt: existingDebt?.createdAt || now,
       updatedAt: now
     };
-    financialState.debts = [debt, ...(financialState.debts || [])];
+    financialState.debts = existingDebt
+      ? (financialState.debts || []).map((item) => (item === existingDebt ? debt : item))
+      : [debt, ...(financialState.debts || [])];
     addOrUpdateMemory({
       content: `Deuda ${debt.name}: $${debt.amount}, pago ${debt.minimumPayment}, frecuencia ${debt.frequency}, fecha ${debt.dueDate}`,
       category: "finance",
@@ -1742,6 +1959,75 @@ function applyFinancialEntry(type, payload = {}) {
   }
 
   return { ok: false, errors: ["Tipo de formulario invalido"] };
+}
+
+function buildFinancialCalendar() {
+  const today = new Date().toISOString().slice(0, 10);
+  const events = [];
+  (financialState.debts || []).forEach((debt) => {
+    if (debt.dueDate) {
+      events.push({
+        id: `debt-${debt.id || debt.name}`,
+        title: `💳 ${debt.name}: pago mínimo $${debt.minimumPayment || 0}`,
+        type: "debt_payment",
+        date: debt.dueDate,
+        amount: Number(debt.minimumPayment || 0),
+        status: debt.dueDate < today ? "late" : "upcoming",
+        relatedId: debt.id || debt.name,
+        description: `Deuda total $${debt.amount || 0}`
+      });
+    }
+    const estimate = estimateDebtPayoff(debt);
+    if (estimate.payoffDate) {
+      events.push({
+        id: `payoff-${debt.id || debt.name}`,
+        title: `⏳ ${debt.name} estimado libre de deuda`,
+        type: "payoff_estimate",
+        date: estimate.payoffDate,
+        amount: 0,
+        status: "estimated",
+        relatedId: debt.id || debt.name,
+        description: estimate.message
+      });
+    }
+  });
+  (financialState.transactions || []).slice(0, 50).forEach((transaction) => {
+    events.push({
+      id: `tx-${transaction.id}`,
+      title: `${transaction.type === "income" ? "💰" : "🧾"} ${transaction.description}`,
+      type: transaction.type === "income" ? "income" : "expense",
+      date: transaction.date || transaction.createdAt?.slice(0, 10),
+      amount: transaction.amount,
+      status: "completed",
+      relatedId: transaction.id,
+      description: transaction.note || transaction.description
+    });
+  });
+  if (financialState.mainGoal?.targetDate) {
+    events.push({
+      id: "main-goal",
+      title: `🎯 ${financialState.mainGoal.name}: revisión de meta`,
+      type: "goal",
+      date: financialState.mainGoal.targetDate,
+      amount: financialState.mainGoal.targetAmount,
+      status: "upcoming",
+      relatedId: "mainGoal",
+      description: `Faltan $${Math.max(0, financialState.mainGoal.targetAmount - financialState.mainGoal.savedAmount)}`
+    });
+  }
+  (financialState.alerts || []).slice(0, 5).forEach((alert, index) => {
+    events.push({
+      id: `alert-${index}`,
+      title: `⚠️ ${alert.message}`,
+      type: "alert",
+      date: alert.createdAt?.slice(0, 10) || today,
+      amount: 0,
+      status: "upcoming",
+      relatedId: null,
+      description: alert.type
+    });
+  });
+  return { events: events.filter((event) => event.date).sort((a, b) => a.date.localeCompare(b.date)) };
 }
 
 function reduceFirstActiveDebt(amount) {
@@ -3047,9 +3333,27 @@ app.get("/financial-state", (req, res) => {
 
 app.post("/onboarding", (req, res) => {
   try {
-    const { action, data = {} } = req.body || {};
+    const { action, mode, data = {} } = req.body || {};
+    if (mode === "ai_test" || action === "ai_test") {
+      const result = startAiOnboarding();
+      return res.json({ ...result, financialData: financialState });
+    }
+    if (action === "save_profile") {
+      return res.json(saveOnboardingProfile());
+    }
+    if (action === "complete_later") {
+      financialState.onboarding.status = "paused";
+      financialState.onboarding.completed = false;
+      saveFinancialState();
+      return res.json({
+        answer: "Perfecto, lo dejamos para después. No guardé conclusiones incompletas.",
+        financialData: financialState,
+        onboarding: financialState.onboarding
+      });
+    }
     financialState.onboarding = {
       ...financialState.onboarding,
+      mode: action === "manual" ? "manual" : financialState.onboarding?.mode || null,
       flow: action || financialState.onboarding?.flow || null,
       completed: action === "skip" ? true : Boolean(data.completed ?? financialState.onboarding?.completed),
       status: action === "skip" ? "skipped" : action || financialState.onboarding?.status || "in_progress",
@@ -3073,7 +3377,7 @@ app.post("/financial-entry", (req, res) => {
     const result = applyFinancialEntry(type, data);
     if (!result.ok) {
       return res.status(400).json({
-        error: "Faltan datos para guardar.",
+        error: `Falta ${result.errors.join(" y ")}`,
         missingFields: result.errors,
         financialData: financialState
       });
@@ -3097,6 +3401,23 @@ app.post("/financial-entry", (req, res) => {
     console.error("[financial-entry] Error:", error);
     return res.status(500).json({ error: "No se pudo guardar el dato financiero.", financialData: financialState });
   }
+});
+
+app.delete("/debts/:id", (req, res) => {
+  const id = req.params.id;
+  const before = financialState.debts?.length || 0;
+  financialState.debts = (financialState.debts || []).filter(
+    (debt) => debt.id !== id && normalizeMemoryText(debt.name) !== normalizeMemoryText(id)
+  );
+  if ((financialState.debts?.length || 0) === before) {
+    return res.status(404).json({ error: "Deuda no encontrada.", financialData: financialState });
+  }
+  saveFinancialState();
+  return res.json({ ok: true, financialData: financialState, dailySummary: buildDailySummary() });
+});
+
+app.get("/financial-calendar", (req, res) => {
+  res.json(buildFinancialCalendar());
 });
 
 app.get("/export-data", (req, res) => {
@@ -3371,6 +3692,43 @@ app.post("/ask-ai", async (req, res) => {
     addConversationMemory("user", question);
     generateDailyMission();
     applyAutomaticFinancialMode();
+
+    if (financialState.onboarding?.mode === "ai_test" && financialState.onboarding.completed === false) {
+      const onboardingResult = handleAiOnboardingAnswer(question);
+      addConversationMemory("assistant", onboardingResult.answer);
+      return res.json({
+        answer: onboardingResult.answer,
+        financialData: financialState,
+        onboarding: financialState.onboarding,
+        onboardingReview: onboardingResult.onboardingReview || false,
+        quickReplies: onboardingResult.quickReplies || ["Sí", "No", "No sé", "Después"],
+        decision: "onboarding",
+        pendingAction: null,
+        pendingForm: null,
+        detectedIntent: "onboarding",
+        intentSource: "onboarding"
+      });
+    }
+
+    const adminAction = detectAdministrativeAction(question);
+    if (adminAction) {
+      const answer =
+        adminAction.type === "delete_debt"
+          ? "Antes de borrar una deuda necesito confirmación. Abre la deuda en el panel y toca Eliminar."
+          : adminAction.type === "edit_debt"
+            ? "Abrí el formulario para modificar esa deuda. Actualiza los datos y guarda."
+            : "Abrí el formulario correcto. Lo guardo solo cuando completes los datos clave.";
+      return res.json({
+        answer,
+        financialData: financialState,
+        decision: "admin_action",
+        pendingAction: null,
+        pendingForm: adminAction.form || (adminAction.type === "edit_debt" ? "debt" : null),
+        formData: adminAction.debt || null,
+        detectedIntent: adminAction.type,
+        intentSource: "admin_action"
+      });
+    }
 
     if (isFinancialBrainQuestion(question)) {
       const relevantMemory = searchMemory(question, 8);

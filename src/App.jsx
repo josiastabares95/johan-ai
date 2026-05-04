@@ -10,6 +10,7 @@ import {
   evolveLearning,
   getFinancialState,
   getHealth,
+  getFinancialCalendar,
   getAuthToken,
   loginUser,
   registerUser,
@@ -109,6 +110,8 @@ const buildDailySummaryFromState = (state = {}) => {
     urgentDebt: debts.find((debt) => Number(debt.amount || 0) > 0) || null,
     dailyMission: state.dailyMission || null,
     goal: state.goal || mockFinancialData.goal,
+    mainGoal: state.mainGoal || mockFinancialData.mainGoal,
+    goalRemaining: Math.max(0, Number(state.mainGoal?.targetAmount || 0) - Number(state.mainGoal?.savedAmount || 0)),
     primaryAlert: state.alerts?.[0] || null,
     suggestions:
       safeToSpend <= 0
@@ -132,6 +135,8 @@ export default function App() {
   const [simulation, setSimulation] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSimulating, setIsSimulating] = useState(false);
+  const [calendar, setCalendar] = useState(null);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [error, setError] = useState("");
   const [connectionStatus, setConnectionStatus] = useState("checking");
   const [authView, setAuthView] = useState("login");
@@ -264,7 +269,10 @@ export default function App() {
     relevantMemory = [],
     financialBrain = null,
     pendingForm = null,
-    preloadedDebt = null
+    preloadedDebt = null,
+    formData = null,
+    onboardingReview = false,
+    quickReplies = []
   ) => {
     const assistantMessage = {
       id: crypto.randomUUID(),
@@ -281,7 +289,10 @@ export default function App() {
       relevantMemory,
       financialBrain,
       pendingForm,
-      preloadedDebt
+      preloadedDebt,
+      formData,
+      onboardingReview,
+      quickReplies
     };
 
     updateChat(chatId, (chat) => ({
@@ -331,7 +342,10 @@ export default function App() {
         response.relevantMemory,
         response.financialBrain,
         response.pendingForm,
-        response.preloadedDebt
+        response.preloadedDebt || response.formData || null,
+        response.formData,
+        response.onboardingReview,
+        response.quickReplies
       );
 
       if (response.financialData) {
@@ -351,7 +365,7 @@ export default function App() {
       setConnectionStatus("offline");
       appendAssistantMessage(
         chatId,
-        "No pude conectar con el backend ahora mismo. Revisa que https://johan-ai-backend.onrender.com/ask-ai este activo."
+        "No pude conectar con Johan AI ahora mismo. Revisa que /api/ask-ai este activo."
       );
       setError(apiError.message || "Ocurrio un error al consultar la IA.");
     } finally {
@@ -435,26 +449,59 @@ export default function App() {
     }
   };
 
-  const handleOpenManualForm = (type) => {
-    const labels = { debt: "nueva deuda", income: "nuevo ingreso", expense: "nuevo gasto" };
+  const handleOpenManualForm = (type, formData = null) => {
+    const labels = {
+      debt: "nueva deuda",
+      income: "nuevo ingreso",
+      expense: "nuevo gasto"
+    };
     appendAssistantMessage(
       activeChatId,
-      `Abrí el formulario de ${labels[type] || "dato financiero"}. Completa lo importante y lo guardo sin adivinar.`,
-      null, null, null, null, null, null, null, null, [], null, type, null
+      `Abri el formulario de ${labels[type] || "dato financiero"}. Completa lo importante y lo guardo sin adivinar.`,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      [],
+      null,
+      type,
+      formData,
+      formData
     );
   };
 
   const handleOnboardingAction = async (action) => {
-    if (action === "ai") {
-      await handleSendMessage("Quiero hacer el test financiero con IA paso a paso");
-      return;
-    }
-
     try {
-      const result = await updateOnboarding(action, { completed: ["skip", "bank_later"].includes(action) });
+      const mappedAction = action === "ai" ? "ai_test" : action;
+      const result = await updateOnboarding(mappedAction, { completed: ["skip", "bank_later"].includes(action) });
       setConnectionStatus("online");
       if (result.financialData) {
         setFinancialData(result.financialData);
+        setDailySummary(buildDailySummaryFromState(result.financialData));
+      }
+      if (result.answer) {
+        appendAssistantMessage(
+          activeChatId,
+          result.answer,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          [],
+          null,
+          null,
+          null,
+          result.onboardingReview || false,
+          result.quickReplies || []
+        );
       }
       if (action === "manual") {
         handleOpenManualForm("income");
@@ -481,20 +528,30 @@ export default function App() {
     }
   };
 
-  const handleDeleteDebt = async (debtName) => {
+  const handleDeleteDebt = async (debt) => {
+    const id = typeof debt === "string" ? debt : debt?.id || debt?.name;
     try {
-      const result = await deleteDebt(debtName);
+      const result = await deleteDebt(id);
       setConnectionStatus("online");
-      if (result.financialData) {
-        setFinancialData(result.financialData);
-        setAlerts(result.financialData.alerts || []);
-      }
-      appendAssistantMessage(activeChatId, `🗑️ Deuda "${debtName}" eliminada.`);
-    } catch (err) {
-      setError(err.message || "No se pudo eliminar la deuda.");
+      applyFinancialStateResult(result);
+      appendAssistantMessage(activeChatId, `Listo, eliminé ${typeof debt === "string" ? debt : debt?.name || "esa deuda"}.`);
+    } catch (debtError) {
+      setError(debtError.message || "No se pudo eliminar la deuda.");
     }
   };
 
+  const handleOpenCalendar = async () => {
+    try {
+      const result = await getFinancialCalendar();
+      setCalendar(result);
+      setIsCalendarOpen(true);
+      setConnectionStatus("online");
+    } catch (calendarError) {
+      setCalendar({ events: [] });
+      setIsCalendarOpen(true);
+      setError(calendarError.message || "No se pudo cargar el calendario.");
+    }
+  };
 
   const handleEvolveLearning = async () => {
     try {
@@ -633,8 +690,34 @@ export default function App() {
         mistakes={mistakes}
         dailyMission={dailyMission}
         simulation={simulation}
+        onDeleteDebt={handleDeleteDebt}
+        onEditDebt={(debt) => handleOpenManualForm("debt", debt)}
+        onOpenCalendar={() => setActiveTab("calendar")}
         onSimulate={handleSimulate}
       />
+      {isCalendarOpen && (
+        <div className="modal-backdrop">
+          <section className="calendar-modal">
+            <header>
+              <h2>📅 Calendario financiero</h2>
+              <button type="button" onClick={() => setIsCalendarOpen(false)}>Cerrar</button>
+            </header>
+            {(calendar?.events || []).length > 0 ? (
+              <div className="calendar-events">
+                {(calendar.events || []).slice(0, 20).map((event) => (
+                  <article key={event.id} className={event.type}>
+                    <span>{event.date}</span>
+                    <strong>{event.title}</strong>
+                    <p>{event.description}</p>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <p>📅 Todavía no hay eventos financieros. Agrega deudas, ingresos o pagos para llenar tu calendario.</p>
+            )}
+          </section>
+        </div>
+      )}
     </div>
   );
 }
