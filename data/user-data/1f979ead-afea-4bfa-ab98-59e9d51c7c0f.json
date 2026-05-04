@@ -1,0 +1,395 @@
+{
+  "balance": 80,
+  "incomeToday": 100,
+  "expensesToday": 20,
+  "userInteractionCount": 57,
+  "debts": [
+    {
+      "name": "cada mes",
+      "amount": 1000,
+      "minimumPayment": 70,
+      "dueDate": "mes",
+      "createdAt": "2026-05-03T17:45:18.559Z",
+      "updatedAt": "2026-05-03T17:45:18.559Z"
+    },
+    {
+      "name": "Carro",
+      "amount": 9000,
+      "minimumPayment": 1000,
+      "dueDate": "primero",
+      "updatedAt": "2026-05-03T17:46:24.288Z"
+    },
+    {
+      "name": "Credit One",
+      "amount": 300
+    }
+  ],
+  "goal": {
+    "name": "Casa Colombia",
+    "saved": 30
+  },
+  "transactions": [
+    {
+      "id": 1777828894328,
+      "type": "expense",
+      "amount": 20,
+      "description": "?",
+      "createdAt": "2026-05-03T17:21:34.328Z"
+    },
+    {
+      "id": 1777828660481,
+      "type": "income",
+      "amount": 100,
+      "description": "Ingreso registrado",
+      "createdAt": "2026-05-03T17:17:40.481Z"
+    }
+  ],
+  "conversationMemory": [
+    {
+      "role": "user",
+      "content": "puedo gastar 100?",
+      "createdAt": "2026-05-03T20:41:20.779Z"
+    },
+    {
+      "role": "assistant",
+      "content": "Bloqueado: no tienes suficiente dinero. Si haces esto, te quedas con $-20.",
+      "createdAt": "2026-05-03T20:41:20.784Z"
+    },
+    {
+      "role": "user",
+      "content": "cuanto dinero necesito hacer hoy?",
+      "createdAt": "2026-05-03T20:41:47.649Z"
+    },
+    {
+      "role": "assistant",
+      "content": "Buena pregunta. Con lo que veo ahora, este sería mi enfoque:\n1. Mira tu balance actual: $80. No tomes decisiones grandes por encima de ese número.\n2. Hoy vas en ingresos $100 y gastos $20. Si vas a gastar, que sea básico o estratégico.\n3. Tienes deuda pendiente de $10300. Si entra dinero extra, yo priorizaría deuda y Casa Colombia antes que compras impulsivas.\nPatrón detectado: riesgo de gastos impulsivos bloqueados. Úsalo como señal, no como culpa.\nTambién tengo presente esto: Deuda Carro: debe $9000, pago minimo $1000, fecha primero; Deuda cada mes: debe $1000, pago minimo $70, fecha mes; 9000 del carro pago 1000 cada primero.\n\nSi quieres, dime el monto exacto o la decisión concreta y la evaluamos antes de mover dinero.",
+      "createdAt": "2026-05-03T20:41:47.653Z"
+    },
+    {
+      "role": "user",
+      "content": "que pagar primero?",
+      "createdAt": "2026-05-03T20:43:45.833Z"
+    },
+    {
+      "role": "assistant",
+      "content": "Buena pregunta. Con lo que veo ahora, este sería mi enfoque:\n1. Mira tu balance actual: $80. No tomes decisiones grandes por encima de ese número.\n2. Hoy vas en ingresos $100 y gastos $20. Si vas a gastar, que sea básico o estratégico.\n3. Tienes deuda pendiente de $10300. Si entra dinero extra, yo priorizaría deuda y Casa Colombia antes que compras impulsivas.\nPatrón detectado: riesgo de gastos impulsivos bloqueados. Úsalo como señal, no como culpa.\nTambién tengo presente esto: Deuda Carro: debe $9000, pago minimo $1000, fecha primero; Deuda cada mes: debe $1000, pago minimo $70, fecha mes; 9000 del carro pago 1000 cada primero.\n\nSi quieres, dime el monto exacto o la decisión concreta y la evaluamos antes de mover dinero.",
+      "createdAt": "2026-05-03T20:43:45.837Z"
+    },
+    {
+      "role": "user",
+      "content": "cual es mi fecha de pago?",
+      "createdAt": "2026-05-03T20:44:08.457Z"
+    },
+    {
+      "role": "assistant",
+      "content": "Creo que hablas de un gasto, pero no estoy totalmente seguro. ¿Lo registro?",
+      "createdAt": "2026-05-03T20:44:08.460Z"
+    },
+    {
+      "role": "user",
+      "content": "malos habitos",
+      "createdAt": "2026-05-03T21:14:20.046Z"
+    },
+    {
+      "role": "assistant",
+      "content": "No tengo suficiente detalle. ¿Esto es un gasto, una deuda nueva o un pago?",
+      "createdAt": "2026-05-03T21:14:20.049Z"
+    }
+  ],
+  "decisions": [
+    {
+      "id": "b733ed55-66f8-4273-a791-e376ba4d5f91",
+      "decision": "blocked",
+      "reason": "no tienes suficiente dinero",
+      "amount": 100,
+      "description": "?",
+      "createdAt": "2026-05-03T20:41:20.780Z"
+    },
+    {
+      "id": "e7eedbd4-eec8-4f86-9ca0-6c652633835a",
+      "decision": "blocked",
+      "reason": "no tienes suficiente dinero",
+      "amount": 200,
+      "description": "",
+      "createdAt": "2026-05-03T17:36:06.503Z"
+    },
+    {
+      "id": "ab3d1dd5-108f-49de-aed3-e974d6e9a3a4",
+      "decision": "approved",
+      "reason": "gasto aprobado dentro de tu situación actual",
+      "amount": 20,
+      "description": "?",
+      "createdAt": "2026-05-03T17:21:34.328Z"
+    }
+  ],
+  "alerts": [
+    {
+      "message": "Deberías priorizar pagar deudas",
+      "type": "warning",
+      "createdAt": "2026-05-03T21:14:20.046Z"
+    }
+  ],
+  "mistakes": [],
+  "allocations": [
+    {
+      "income": 100,
+      "distribution": {
+        "expenses": 50,
+        "savings": 30,
+        "debt": 20
+      },
+      "mode": "normal",
+      "debtPayment": 20,
+      "debtTarget": "Carro",
+      "createdAt": "2026-05-03T17:17:40.481Z"
+    }
+  ],
+  "allocationOverrides": {
+    "disciplina": {
+      "expenses": 0.35,
+      "savings": 0.25,
+      "debt": 0.4
+    }
+  },
+  "pendingStrategyOptions": [],
+  "universalMemory": [
+    {
+      "id": "a85a15d9-eb11-4f37-a4aa-36912f6e7062",
+      "content": "gastar 200 dólares en ropa hoy",
+      "category": "preference",
+      "importance": 3,
+      "sourceMessage": "Quiero gastar 200 dólares en ropa hoy",
+      "createdAt": "2026-05-03T18:20:02.534Z",
+      "updatedAt": "2026-05-03T18:20:02.534Z"
+    },
+    {
+      "id": "e5112670-b92a-441e-b3fb-c3d98a6ea895",
+      "content": "pagar 100 a Credit One",
+      "category": "preference",
+      "importance": 3,
+      "sourceMessage": "quiero pagar 100 a Credit One",
+      "createdAt": "2026-05-03T17:47:32.963Z",
+      "updatedAt": "2026-05-03T17:47:32.963Z"
+    },
+    {
+      "id": "c595ede9-9b10-42e3-9fcf-123c99ecb9e7",
+      "content": "Deuda Carro: debe $9000, pago minimo $1000, fecha primero",
+      "category": "finance",
+      "importance": 4,
+      "sourceMessage": "debo 9000 del carro pago 1000 cada primero",
+      "createdAt": "2026-05-03T17:46:24.288Z",
+      "updatedAt": "2026-05-03T17:46:24.288Z"
+    },
+    {
+      "id": "c15fc3ef-6f3e-4903-8ae1-771257a2826d",
+      "content": "9000 del carro pago 1000 cada primero",
+      "category": "rule",
+      "importance": 5,
+      "sourceMessage": "debo 9000 del carro pago 1000 cada primero",
+      "createdAt": "2026-05-03T17:46:24.287Z",
+      "updatedAt": "2026-05-03T17:46:24.287Z"
+    },
+    {
+      "id": "d7372cc4-cb2a-4995-926c-0ebbf895e9f1",
+      "content": "Deuda cada mes: debe $1000, pago minimo $70, fecha mes",
+      "category": "finance",
+      "importance": 4,
+      "sourceMessage": "bank america\ndebo 1000 tarjeta de credito\n70\n1 de cada mes",
+      "createdAt": "2026-05-03T17:45:18.559Z",
+      "updatedAt": "2026-05-03T17:45:18.559Z"
+    },
+    {
+      "id": "73b8ba71-b82c-4307-a98a-9be4bd9a128e",
+      "content": "pagar mi tarjeta de crédito",
+      "category": "preference",
+      "importance": 3,
+      "sourceMessage": "quiero pagar mi tarjeta de crédito",
+      "createdAt": "2026-05-03T17:35:52.664Z",
+      "updatedAt": "2026-05-03T17:47:11.409Z"
+    }
+  ],
+  "priorities": [
+    {
+      "name": "Renta",
+      "level": 1,
+      "type": "essential"
+    },
+    {
+      "name": "Comida básica",
+      "level": 2,
+      "type": "essential"
+    },
+    {
+      "name": "Gasolina / transporte",
+      "level": 3,
+      "type": "essential"
+    },
+    {
+      "name": "Deudas",
+      "level": 4,
+      "type": "debt"
+    },
+    {
+      "name": "Casa Colombia",
+      "level": 5,
+      "type": "goal"
+    },
+    {
+      "name": "Gastos opcionales",
+      "level": 6,
+      "type": "optional"
+    }
+  ],
+  "coachMessages": [
+    {
+      "id": "62a815db-576f-4c3e-9b9d-36e4cf8138a8",
+      "message": "No olvides: deuda primero, comodidad después.",
+      "createdAt": "2026-05-03T21:14:20.046Z"
+    }
+  ],
+  "dailyMission": {
+    "id": "3f476288-9088-4d29-bb25-49b70cfa5b21",
+    "title": "Registrar todos los gastos del día",
+    "description": "Sin registro no hay control.",
+    "status": "completed",
+    "createdAt": "2026-05-03T17:17:40.480Z",
+    "completedAt": "2026-05-03T17:17:40.482Z"
+  },
+  "pendingActions": [
+    {
+      "id": "efa9054c-d765-463d-b1fd-bce49807c76d",
+      "intent": "expense",
+      "amount": null,
+      "confidence": 0.45,
+      "sourceMessage": "cual es mi fecha de pago?",
+      "createdAt": "2026-05-03T20:44:08.457Z"
+    },
+    {
+      "id": "8bb6b52e-4bf0-4ec0-b809-199a741a0e8d",
+      "intent": "expense",
+      "amount": null,
+      "confidence": 0.45,
+      "sourceMessage": "¿Pago primero el carro o Credit One?",
+      "createdAt": "2026-05-03T20:37:55.553Z"
+    },
+    {
+      "id": "9052a004-32e8-4327-afdf-7d7bf0b5bf4b",
+      "intent": "unknown",
+      "amount": 200,
+      "confidence": 0.45,
+      "sourceMessage": "Quiero gastar 200 dólares en ropa hoy",
+      "createdAt": "2026-05-03T18:20:02.534Z"
+    }
+  ],
+  "learningProfile": {
+    "patterns": [
+      {
+        "id": "ffd75e1a-7a97-4be5-8985-4e8c27677638",
+        "pattern": "riesgo de gastos impulsivos bloqueados",
+        "category": "bad_habit",
+        "evidence": "2 gastos bloqueados por Johan AI",
+        "confidence": 0.78,
+        "createdAt": "2026-05-03T20:41:20.780Z",
+        "updatedAt": "2026-05-03T21:14:27.280Z"
+      },
+      {
+        "id": "5818379c-4bbc-4047-aa27-75786dada317",
+        "pattern": "pregunta antes de gastar",
+        "category": "good_habit",
+        "evidence": "2 decisiones evaluadas antes de gastar",
+        "confidence": 0.76,
+        "createdAt": "2026-05-03T20:41:20.780Z",
+        "updatedAt": "2026-05-03T21:14:27.280Z"
+      }
+    ],
+    "preferencesLearned": [
+      "usa reglas personales para controlar gastos"
+    ],
+    "badHabitsDetected": [
+      "intentos de gasto impulsivo"
+    ],
+    "goodHabitsDetected": [
+      "pregunta antes de gastar"
+    ],
+    "strategyAdjustments": [
+      {
+        "id": "cae9ab83-26a7-4a48-a188-35c580cbbcb7",
+        "requiresConfirmation": true,
+        "suggestedChange": "aumentar porcentaje a deuda en modo disciplina",
+        "reason": "Tienes deuda activa e ingresos recientes; más presión a deuda puede acelerar estabilidad.",
+        "percentages": {
+          "expenses": 0.35,
+          "savings": 0.25,
+          "debt": 0.4
+        },
+        "status": "confirmed",
+        "createdAt": "2026-05-03T21:13:58.166Z",
+        "updatedAt": "2026-05-03T21:14:29.194Z"
+      },
+      {
+        "id": "0bb6708d-4393-4329-8acd-8a9bcfba5e32",
+        "requiresConfirmation": true,
+        "suggestedChange": "aumentar porcentaje a deuda en modo disciplina",
+        "reason": "Tienes deuda activa e ingresos recientes; más presión a deuda puede acelerar estabilidad.",
+        "percentages": {
+          "expenses": 0.35,
+          "savings": 0.25,
+          "debt": 0.4
+        },
+        "status": "confirmed",
+        "createdAt": "2026-05-03T17:46:35.345Z",
+        "updatedAt": "2026-05-03T17:46:37.254Z"
+      },
+      {
+        "id": "5389fef2-c237-4022-844f-a10072a02f9e",
+        "requiresConfirmation": true,
+        "suggestedChange": "aumentar porcentaje a deuda en modo disciplina",
+        "reason": "Tienes deuda activa e ingresos recientes; más presión a deuda puede acelerar estabilidad.",
+        "percentages": {
+          "expenses": 0.35,
+          "savings": 0.25,
+          "debt": 0.4
+        },
+        "status": "confirmed",
+        "createdAt": "2026-05-03T17:45:52.196Z",
+        "updatedAt": "2026-05-03T17:45:54.612Z"
+      },
+      {
+        "id": "cf5fe03e-5bcc-4c14-bc06-cbf628fc61cc",
+        "requiresConfirmation": true,
+        "suggestedChange": "aumentar porcentaje a deuda en modo disciplina",
+        "reason": "Tienes deuda activa e ingresos recientes; más presión a deuda puede acelerar estabilidad.",
+        "percentages": {
+          "expenses": 0.35,
+          "savings": 0.25,
+          "debt": 0.4
+        },
+        "status": "confirmed",
+        "createdAt": "2026-05-03T17:29:24.300Z",
+        "updatedAt": "2026-05-03T17:29:28.816Z"
+      },
+      {
+        "id": "7aa35e33-2699-408e-8a45-a45ed54596ae",
+        "requiresConfirmation": true,
+        "suggestedChange": "aumentar porcentaje a deuda en modo disciplina",
+        "reason": "Tienes deuda activa e ingresos recientes; más presión a deuda puede acelerar estabilidad.",
+        "percentages": {
+          "expenses": 0.35,
+          "savings": 0.25,
+          "debt": 0.4
+        },
+        "status": "confirmed",
+        "createdAt": "2026-05-03T17:17:56.822Z",
+        "updatedAt": "2026-05-03T17:20:44.313Z"
+      }
+    ],
+    "confidence": 0.48
+  },
+  "mode": "normal",
+  "userProfile": {
+    "incomeType": "variable",
+    "goal": "Casa Colombia",
+    "riskTolerance": "high",
+    "avoidSpendingOn": []
+  }
+}

@@ -1,0 +1,152 @@
+{
+  "balance": 0,
+  "incomeToday": 0,
+  "expensesToday": 0,
+  "debts": [
+    {
+      "name": "Carro",
+      "amount": 9000
+    },
+    {
+      "name": "Credit One",
+      "amount": 300
+    }
+  ],
+  "goal": {
+    "name": "Casa Colombia",
+    "saved": 0
+  },
+  "transactions": [],
+  "decisions": [],
+  "alerts": [
+    {
+      "message": "No estás avanzando hacia Casa Colombia",
+      "type": "info",
+      "createdAt": "2026-05-02T05:43:03.737Z"
+    },
+    {
+      "message": "Tu dinero es bajo, cuidado",
+      "type": "danger",
+      "createdAt": "2026-05-02T05:43:03.737Z"
+    },
+    {
+      "message": "No estás avanzando hacia Casa Colombia",
+      "type": "info",
+      "createdAt": "2026-05-02T05:42:54.225Z"
+    },
+    {
+      "message": "Tu dinero es bajo, cuidado",
+      "type": "danger",
+      "createdAt": "2026-05-02T05:42:54.225Z"
+    },
+    {
+      "message": "No estás avanzando hacia Casa Colombia",
+      "type": "info",
+      "createdAt": "2026-05-02T05:33:16.330Z"
+    },
+    {
+      "message": "Tu dinero es bajo, cuidado",
+      "type": "danger",
+      "createdAt": "2026-05-02T05:33:16.330Z"
+    },
+    {
+      "message": "No estás avanzando hacia Casa Colombia",
+      "type": "info",
+      "createdAt": "2026-05-02T05:32:59.130Z"
+    },
+    {
+      "message": "Tu dinero es bajo, cuidado",
+      "type": "danger",
+      "createdAt": "2026-05-02T05:32:59.130Z"
+    },
+    {
+      "message": "No estás avanzando hacia Casa Colombia",
+      "type": "info",
+      "createdAt": "2026-05-02T05:28:03.635Z"
+    },
+    {
+      "message": "Tu dinero es bajo, cuidado",
+      "type": "danger",
+      "createdAt": "2026-05-02T05:28:03.635Z"
+    },
+    {
+      "message": "No estás avanzando hacia Casa Colombia",
+      "type": "info",
+      "createdAt": "2026-05-02T05:16:54.364Z"
+    },
+    {
+      "message": "Tu dinero es bajo, cuidado",
+      "type": "danger",
+      "createdAt": "2026-05-02T05:16:54.364Z"
+    },
+    {
+      "message": "No estás avanzando hacia Casa Colombia",
+      "type": "info",
+      "createdAt": "2026-05-02T05:16:44.663Z"
+    },
+    {
+      "message": "Tu dinero es bajo, cuidado",
+      "type": "danger",
+      "createdAt": "2026-05-02T05:16:44.663Z"
+    },
+    {
+      "message": "No estás avanzando hacia Casa Colombia",
+      "type": "info",
+      "createdAt": "2026-05-02T05:12:55.859Z"
+    },
+    {
+      "message": "Tu dinero es bajo, cuidado",
+      "type": "danger",
+      "createdAt": "2026-05-02T05:12:55.859Z"
+    },
+    {
+      "message": "No estás avanzando hacia Casa Colombia",
+      "type": "info",
+      "createdAt": "2026-05-02T05:12:20.065Z"
+    },
+    {
+      "message": "Tu dinero es bajo, cuidado",
+      "type": "danger",
+      "createdAt": "2026-05-02T05:12:20.065Z"
+    },
+    {
+      "message": "No estás avanzando hacia Casa Colombia",
+      "type": "info",
+      "createdAt": "2026-05-02T05:10:39.340Z"
+    },
+    {
+      "message": "Tu dinero es bajo, cuidado",
+      "type": "danger",
+      "createdAt": "2026-05-02T05:10:39.340Z"
+    }
+  ],
+  "allocations": [],
+  "allocationOverrides": {},
+  "pendingStrategyOptions": [],
+  "universalMemory": [
+    {
+      "id": "6cf374e8-bdbf-41b4-8837-bf09d0d3a844",
+      "content": "te quiero contar algo",
+      "category": "preference",
+      "importance": 3,
+      "sourceMessage": "te quiero contar algo",
+      "createdAt": "2026-05-02T04:26:23.180Z",
+      "updatedAt": "2026-05-02T04:26:23.180Z"
+    }
+  ],
+  "learningProfile": {
+    "patterns": [],
+    "preferencesLearned": [],
+    "badHabitsDetected": [],
+    "goodHabitsDetected": [],
+    "strategyAdjustments": [],
+    "confidence": 0
+  },
+  "mode": "extremo",
+  "userProfile": {
+    "incomeType": "variable",
+    "goal": "Casa Colombia",
+    "riskTolerance": "high",
+    "avoidSpendingOn": []
+  }
+}
