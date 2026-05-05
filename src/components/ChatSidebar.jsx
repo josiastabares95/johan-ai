@@ -33,10 +33,7 @@ export default function ChatSidebar({
       <nav className="sidebar-nav" aria-label="Navegacion principal">
         {tabBtn("chat", "💬", "Chat")}
         {tabBtn("calendar", "📅", "Calendario")}
-        <button type="button" className="nav-item disabled">
-          <span>🏆</span>
-          Logros
-        </button>
+        {tabBtn("achievements", "??", "Logros")}
         <button type="button" className="nav-item disabled">
           <span>⚙️</span>
           Ajustes

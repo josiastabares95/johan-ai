@@ -68,6 +68,25 @@ const defaultFinancialState = {
   recurringPayments: [],
   archivedConversations: [],
   achievements: [],
+  missions: {
+    daily: [],
+    weekly: [],
+    monthly: []
+  },
+  streaks: {
+    daily: 0,
+    weekly: 0,
+    best: 0,
+    expenseTrackingDays: 0,
+    noImpulseDays: 0,
+    missionDays: 0,
+    goalDays: 0
+  },
+  xp: 0,
+  level: 1,
+  levelTitle: "Aprendiz financiero",
+  milestones: [],
+  lastAchievement: null,
   universalMemory: [],
   priorities: [
     { name: "Renta", level: 1, type: "essential" },
@@ -495,6 +514,20 @@ function normalizeFinancialState(state) {
       ? safeState.archivedConversations
       : [],
     achievements: Array.isArray(safeState.achievements) ? safeState.achievements : [],
+    missions: {
+      daily: Array.isArray(safeState.missions?.daily) ? safeState.missions.daily : [],
+      weekly: Array.isArray(safeState.missions?.weekly) ? safeState.missions.weekly : [],
+      monthly: Array.isArray(safeState.missions?.monthly) ? safeState.missions.monthly : []
+    },
+    streaks: {
+      ...defaultFinancialState.streaks,
+      ...(safeState.streaks || {})
+    },
+    xp: Number(safeState.xp ?? safeState.missionStats?.xp ?? 0),
+    level: Number(safeState.level || 1),
+    levelTitle: safeState.levelTitle || defaultFinancialState.levelTitle,
+    milestones: Array.isArray(safeState.milestones) ? safeState.milestones : [],
+    lastAchievement: safeState.lastAchievement || null,
     universalMemory: dedupeByKey(
       Array.isArray(safeState.universalMemory) ? safeState.universalMemory : [],
       (memory) => `${memory.category}:${normalizeMemoryText(memory.content)}`
@@ -1217,6 +1250,7 @@ function saveOnboardingProfile(options = {}) {
   financialState.onboarding.step = "review";
   financialState.onboarding.updatedAt = now;
   financialState.mode = calculateAutomaticFinancialMode();
+  updateAchievementSystem({ type: "onboarding_completed", forceLastAchievement: true });
   saveFinancialState();
   return {
     answer:
@@ -1840,6 +1874,154 @@ function updateMissionProgress() {
   return mission;
 }
 
+function getFinancialLevel(xp = 0) {
+  const levels = [
+    { level: 1, title: "Aprendiz financiero", min: 0 },
+    { level: 2, title: "Controlador de gastos", min: 120 },
+    { level: 3, title: "Guerrero de deudas", min: 320 },
+    { level: 4, title: "Constructor de metas", min: 650 },
+    { level: 5, title: "Estratega financiero", min: 1100 }
+  ];
+  return levels.reduce((current, item) => (xp >= item.min ? item : current), levels[0]);
+}
+
+function missionProgressItem(id, title, description, xp, progress, target, reward, statusOverride = null) {
+  const pct = Math.min(100, Math.round((Number(progress || 0) / Math.max(Number(target || 1), 1)) * 100));
+  return {
+    id,
+    title,
+    description,
+    xp,
+    progress: roundMoney(Number(progress || 0)),
+    target,
+    percent: pct,
+    status: statusOverride || (pct >= 100 ? "completada" : pct > 0 ? "en progreso" : "pendiente"),
+    reward
+  };
+}
+
+function buildAchievementItem(id, emoji, title, description, progress, target, kind = "medal") {
+  const pct = Math.min(100, Math.round((Number(progress || 0) / Math.max(Number(target || 1), 1)) * 100));
+  return {
+    id,
+    emoji,
+    title,
+    description,
+    kind,
+    progress: roundMoney(Number(progress || 0)),
+    target,
+    percent: pct,
+    status: pct >= 100 ? "ganada" : pct > 0 ? "en progreso" : "bloqueada"
+  };
+}
+
+function updateAchievementSystem(event = {}) {
+  generateDailyMission();
+  const transactions = Array.isArray(financialState.transactions) ? financialState.transactions : [];
+  const incomes = transactions.filter((tx) => tx.type === "income");
+  const expenses = transactions.filter((tx) => tx.type === "expense");
+  const debtPayments = transactions.filter((tx) => tx.type === "debt_payment");
+  const totalIncome = incomes.reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
+  const totalExpenses = expenses.reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
+  const goalSaved = Number(financialState.mainGoal?.savedAmount || financialState.goal?.saved || 0);
+  const trackedDays = new Set(transactions.map((tx) => (tx.date || tx.createdAt || "").slice(0, 10)).filter(Boolean)).size;
+  const discipline = financialState.disciplineScore || calculateDisciplineScore();
+  const currentMission = financialState.dailyMission || null;
+  const xpBase = Number(financialState.missionStats?.xp || financialState.xp || 0);
+  const xpFromActivity = incomes.length * 8 + expenses.length * 5 + debtPayments.length * 12 + Math.floor(goalSaved / 25);
+  const xp = Math.max(Number(financialState.xp || 0), xpBase + xpFromActivity);
+  const levelInfo = getFinancialLevel(xp);
+  const noImpulseDays = Math.max(0, trackedDays - Math.ceil(totalExpenses / 150));
+  const goalDays = goalSaved > 0 ? Math.max(1, Math.floor(goalSaved / 20)) : 0;
+  const missionDays = Number(financialState.missionStats?.streak || 0);
+
+  financialState.xp = xp;
+  financialState.level = levelInfo.level;
+  financialState.levelTitle = levelInfo.title;
+  financialState.streaks = {
+    daily: trackedDays,
+    weekly: Math.min(7, trackedDays),
+    best: Math.max(Number(financialState.streaks?.best || 0), trackedDays, Number(financialState.missionStats?.bestStreak || 0)),
+    expenseTrackingDays: trackedDays,
+    noImpulseDays,
+    missionDays,
+    goalDays
+  };
+
+  financialState.missions = {
+    daily: [
+      missionProgressItem(
+        currentMission?.id || "daily-mission",
+        currentMission?.title || "No gastar en comida fuera hoy",
+        currentMission?.description || "Protege tu dinero seguro y registra tus movimientos.",
+        currentMission?.rewardXp || 20,
+        currentMission?.progress || 0,
+        currentMission?.target || 1,
+        "XP +20",
+        currentMission?.status === "completed" ? "completada" : null
+      ),
+      missionProgressItem("save-goal-today", "Ahorrar $20 para Casa Colombia", "Mueve dinero a tu objetivo principal.", 25, goalSaved, 20, "🏠")
+    ],
+    weekly: [
+      missionProgressItem("track-3-days", "Registrar todos tus gastos por 3 dias", "Anota ingresos, gastos o pagos sin huecos.", 35, trackedDays, 3, "⚡"),
+      missionProgressItem("priority-debt", "Pagar deuda prioritaria", "Avanza la deuda que mas bloquea tu estabilidad.", 40, debtPayments.length, 1, "🛡️")
+    ],
+    monthly: [
+      missionProgressItem("disciplined-week", "Completar semana disciplinada", "Mantente bajo tu dinero seguro.", 80, discipline.score, 75, "🏆"),
+      missionProgressItem("positive-balance", "Cerrar con balance positivo", "Que ingresos superen gastos registrados.", 70, Math.max(0, totalIncome - totalExpenses), 1, "💎")
+    ]
+  };
+
+  const medals = [
+    buildAchievementItem("first-expense", "🥉", "Primer gasto registrado", "Ya empezaste a medir lo real.", expenses.length, 1),
+    buildAchievementItem("first-income", "🥈", "Primer ingreso registrado", "Johan puede recomendar asignaciones.", incomes.length, 1),
+    buildAchievementItem("first-disciplined-week", "🥇", "Primera semana disciplinada", "Score arriba de 75.", discipline.score, 75),
+    buildAchievementItem("first-100-saved", "💎", "Primer $100 ahorrados", "Casa Colombia empieza a moverse.", goalSaved, 100),
+    buildAchievementItem("seven-day-streak", "🔥", "7 dias de racha", "Registro y control por una semana.", trackedDays, 7),
+    buildAchievementItem("safe-limit", "🛡️", "No pasaste tu limite", "Disciplina sobre gasto impulsivo.", discipline.score, 80),
+    buildAchievementItem("casa-colombia", "🏠", "Avance Casa Colombia", "Primer avance visible en la meta.", goalSaved, 20)
+  ];
+  const trophies = [
+    buildAchievementItem("debt-dominated", "🏆", "Deuda dominada", "Pagos o deuda bajo control.", debtPayments.length, 3, "trophy"),
+    buildAchievementItem("disciplined-month", "🏆", "Mes disciplinado", "XP y score constantes.", xp, 650, "trophy"),
+    buildAchievementItem("weekly-goal", "🏆", "Meta semanal cumplida", "Semana con plan y registros.", trackedDays, 7, "trophy"),
+    buildAchievementItem("goal-moving", "🏆", "Casa Colombia avanzando", "Ahorro acumulado fuerte.", goalSaved, 500, "trophy"),
+    buildAchievementItem("control-king", "🏆", "Rey del control financiero", "Nivel de estratega financiero.", levelInfo.level, 5, "trophy")
+  ];
+  const milestones = [
+    buildAchievementItem("milestone-income", "💰", "Primer ingreso", "Primer ingreso registrado.", incomes.length, 1, "milestone"),
+    buildAchievementItem("milestone-expense", "🧾", "Primer gasto", "Primer gasto real registrado.", expenses.length, 1, "milestone"),
+    buildAchievementItem("milestone-debt", "💳", "Primera deuda registrada", "Ya hay deuda para priorizar.", (financialState.debts || []).length, 1, "milestone"),
+    buildAchievementItem("milestone-debt-reduced", "📉", "Primera deuda reducida", "Primer pago de deuda guardado.", debtPayments.length, 1, "milestone"),
+    buildAchievementItem("milestone-goal", "🏠", "Primer pago a Casa Colombia", "Primer avance de meta.", goalSaved, 20, "milestone"),
+    buildAchievementItem("milestone-positive", "📈", "Primer balance positivo", "Ingresos mayores a gastos.", Math.max(0, totalIncome - totalExpenses), 1, "milestone"),
+    buildAchievementItem("milestone-calendar", "📅", "Primer calendario completo", "Deudas con fechas registradas.", (financialState.debts || []).filter((debt) => debt.dueDate).length, 1, "milestone")
+  ];
+
+  const allAchievements = [...medals, ...trophies];
+  const newlyEarned = allAchievements.find(
+    (item) =>
+      item.status === "ganada" &&
+      !(financialState.achievements || []).some((existing) => existing.id === item.id && existing.status === "ganada")
+  );
+
+  financialState.achievements = allAchievements;
+  financialState.milestones = milestones;
+  if (newlyEarned || event.forceLastAchievement) {
+    financialState.lastAchievement = newlyEarned || financialState.lastAchievement;
+  }
+  return {
+    achievements: financialState.achievements,
+    missions: financialState.missions,
+    streaks: financialState.streaks,
+    xp: financialState.xp,
+    level: financialState.level,
+    levelTitle: financialState.levelTitle,
+    milestones: financialState.milestones,
+    lastAchievement: financialState.lastAchievement
+  };
+}
+
 function checkFinancialAlerts() {
   const alertsBefore = financialState.alerts?.length || 0;
   const totalDebt = (financialState.debts || []).reduce(
@@ -2192,6 +2374,7 @@ function getPrimaryAlert() {
 function buildDailySummary() {
   applyAutomaticFinancialMode();
   const autonomous = refreshAutonomousBrain();
+  const achievementSystem = updateAchievementSystem();
   const safeToSpend = autonomous.safeToSpend.today;
   const urgentDebt = getUrgentDebt();
   const primaryAlert = getPrimaryAlert();
@@ -2214,6 +2397,7 @@ function buildDailySummary() {
     disciplineScore: autonomous.disciplineScore,
     autopilot: autonomous.autopilot,
     notifications: financialState.notifications || [],
+    achievements: achievementSystem,
     primaryAlert,
     suggestions:
       safeToSpend <= 0
@@ -3962,6 +4146,8 @@ app.use(authMiddleware);
 
 app.get("/financial-state", (req, res) => {
   applyAutomaticFinancialMode();
+  refreshAutonomousBrain();
+  updateAchievementSystem();
   res.json(financialState);
 });
 
@@ -4021,6 +4207,7 @@ app.post("/financial-entry", (req, res) => {
     detectFinancialMistakes();
     updateMissionProgress();
     analyzeUserPatterns();
+    updateAchievementSystem({ type });
     saveFinancialState();
 
     return res.json({
@@ -4601,6 +4788,7 @@ app.put("/debt/:name", (req, res) => {
     if (updates.type) debt.type = updates.type;
     debt.updatedAt = new Date().toISOString();
 
+    updateAchievementSystem({ type: "debt_updated" });
     saveFinancialState();
     return res.json({ ok: true, debt, financialData: financialState });
   } catch (error) {
@@ -4621,6 +4809,7 @@ app.delete("/debt/:name", (req, res) => {
       return res.status(404).json({ error: "Deuda no encontrada." });
     }
 
+    updateAchievementSystem({ type: "debt_deleted" });
     saveFinancialState();
     return res.json({ ok: true, financialData: financialState });
   } catch (error) {

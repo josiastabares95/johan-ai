@@ -86,6 +86,9 @@ export default function FinancePanel({
   const disciplineScore = financialData?.disciplineScore || dailySummary?.disciplineScore || null;
   const behavioralInsights = financialData?.behavioralInsights || dailySummary?.behavioralInsights || null;
   const missionStats = financialData?.missionStats || {};
+  const xp = Number(financialData?.xp ?? missionStats.xp ?? 0);
+  const streaks = financialData?.streaks || {};
+  const lastAchievement = financialData?.lastAchievement || null;
   const daily = dailySummary || {
     greeting: `Hey Johan, hoy estas en modo ${data.mode}.`,
     balance: data.balance,
@@ -188,6 +191,15 @@ export default function FinancePanel({
         ) : (
           <p>No hay mision activa.</p>
         )}
+      </section>
+
+      <section className="achievement-summary-card">
+        <div className="panel-subheading">
+          <span>🏆 Logros</span>
+        </div>
+        <strong>{financialData?.levelTitle || "Aprendiz financiero"}</strong>
+        <p>XP {xp} · Racha {streaks.daily || missionStats.streak || 0}</p>
+        <span>{lastAchievement?.title || "Siguiente logro en progreso"}</span>
       </section>
 
       <section className="priority-card">

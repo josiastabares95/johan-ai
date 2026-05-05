@@ -24,6 +24,7 @@ import ChatSidebar from "./components/ChatSidebar.jsx";
 import ChatWindow from "./components/ChatWindow.jsx";
 import FinancePanel from "./components/FinancePanel.jsx";
 import FinancialCalendar from "./components/FinancialCalendar.jsx";
+import AchievementsHub from "./components/AchievementsHub.jsx";
 import Login from "./components/Login.jsx";
 import Register from "./components/Register.jsx";
 import { mockFinancialData } from "./data/mockFinancialData.js";
@@ -894,6 +895,8 @@ export default function App() {
         <div className="calendar-page">
           <FinancialCalendar onBack={() => setActiveTab("chat")} />
         </div>
+      ) : activeTab === "achievements" ? (
+        <AchievementsHub financialData={financialData} onBack={() => setActiveTab("chat")} />
       ) : (
         <ChatWindow
           chat={activeChat}
