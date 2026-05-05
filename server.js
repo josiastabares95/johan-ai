@@ -55,6 +55,15 @@ const defaultFinancialState = {
   mistakes: [],
   allocations: [],
   allocationOverrides: {},
+  autopilot: null,
+  safeToSpend: null,
+  behavioralInsights: null,
+  disciplineScore: {
+    score: 50,
+    trend: "stable",
+    reason: "Aun estoy aprendiendo tu ritmo."
+  },
+  notifications: [],
   pendingStrategyOptions: [],
   recurringPayments: [],
   archivedConversations: [],
@@ -469,6 +478,15 @@ function normalizeFinancialState(state) {
     ).slice(0, 20),
     allocations: Array.isArray(safeState.allocations) ? safeState.allocations.slice(0, 50) : [],
     allocationOverrides: safeState.allocationOverrides || {},
+    autopilot: safeState.autopilot || null,
+    safeToSpend: safeState.safeToSpend || null,
+    behavioralInsights: safeState.behavioralInsights || null,
+    disciplineScore: {
+      ...defaultFinancialState.disciplineScore,
+      ...(safeState.disciplineScore || {}),
+      score: Number(safeState.disciplineScore?.score || defaultFinancialState.disciplineScore.score)
+    },
+    notifications: Array.isArray(safeState.notifications) ? safeState.notifications.slice(0, 50) : [],
     pendingStrategyOptions: Array.isArray(safeState.pendingStrategyOptions)
       ? safeState.pendingStrategyOptions
       : [],
@@ -1902,6 +1920,242 @@ function calculateSafeToSpendToday() {
   return roundMoney(Math.min(balanceMargin, dailyMargin || balanceMargin, balance * capByMode));
 }
 
+function daysUntil(dateValue) {
+  if (!dateValue) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(dateValue);
+  if (Number.isNaN(target.getTime())) return null;
+  target.setHours(0, 0, 0, 0);
+  return Math.ceil((target.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
+}
+
+function getUpcomingFinancialNeeds(days = 7) {
+  const needs = [];
+  (financialState.debts || []).forEach((debt) => {
+    const dueIn = daysUntil(debt.dueDate);
+    if (dueIn !== null && dueIn >= 0 && dueIn <= days) {
+      needs.push({
+        type: "debt",
+        name: debt.name || "Deuda",
+        amount: roundMoney(Number(debt.minimumPayment || 0)),
+        dueDate: debt.dueDate,
+        priority: dueIn <= 2 ? "high" : "medium"
+      });
+    }
+  });
+  (financialState.recurringPayments || []).forEach((payment) => {
+    const dueDate = payment.dueDate || payment.date || payment.nextDate;
+    const dueIn = daysUntil(dueDate);
+    if (dueIn !== null && dueIn >= 0 && dueIn <= days) {
+      needs.push({
+        type: payment.type || "essential",
+        name: payment.name || payment.category || "Pago",
+        amount: roundMoney(Number(payment.amount || 0)),
+        dueDate,
+        priority: dueIn <= 2 ? "high" : "medium"
+      });
+    }
+  });
+  return needs
+    .filter((need) => Number(need.amount || 0) > 0)
+    .sort((a, b) => (daysUntil(a.dueDate) ?? 99) - (daysUntil(b.dueDate) ?? 99));
+}
+
+function calculateAdvancedSafeToSpend(spendAmount = 0) {
+  applyAutomaticFinancialMode();
+  financialState.mainGoal = normalizeMainGoal(financialState.mainGoal || financialState.goal);
+  const mode = financialState.mode;
+  const balance = Number(financialState.balance || 0);
+  const baseToday = calculateSafeToSpendToday();
+  const upcomingNeeds = getUpcomingFinancialNeeds(7);
+  const upcomingTotal = upcomingNeeds.reduce((sum, need) => sum + Number(need.amount || 0), 0);
+  const modeReserve = mode === "extremo" ? 75 : mode === "disciplina" ? 45 : 25;
+  const week = roundMoney(Math.max(0, Math.min(balance - modeReserve - upcomingTotal, baseToday * 4)));
+  const today = roundMoney(Math.max(0, Math.min(baseToday, week)));
+  const mainGoal = financialState.mainGoal;
+  const goalName = mainGoal.name || financialState.goal?.name || "Casa Colombia";
+  const dailyNeeded = Number(mainGoal.dailyNeeded || 0);
+  const amount = Number(spendAmount || 0);
+  const affectsGoal = amount > today || (dailyNeeded > 0 && amount > Math.max(5, today * 0.5));
+  const goalDelayDays = dailyNeeded > 0 && amount > 0 ? Math.ceil(amount / dailyNeeded) : 0;
+  const recommendedMode =
+    today <= 0 || upcomingTotal > balance * 0.5 ? "extremo" : mode === "disciplina" || upcomingTotal > 0 ? "disciplina" : "normal";
+
+  return {
+    today,
+    week,
+    mode: recommendedMode,
+    spendAmount: roundMoney(amount),
+    affectsGoal,
+    goalDelayDays: affectsGoal ? goalDelayDays : 0,
+    goalName,
+    upcomingNeeds,
+    risk:
+      today <= 0 || amount > today
+        ? "high"
+        : upcomingTotal > week * 0.6
+          ? "medium"
+          : "low",
+    reason:
+      today <= 0
+        ? "Tu margen libre esta cerrado por balance, pagos o meta."
+        : `Tienes ${formatMoney(today)} libre hoy despues de proteger pagos y ${goalName}.`
+  };
+}
+
+function buildBehavioralInsights() {
+  const transactions = Array.isArray(financialState.transactions) ? financialState.transactions : [];
+  const now = Date.now();
+  const dayMs = 24 * 60 * 60 * 1000;
+  const recent = transactions.filter((tx) => {
+    const date = new Date(tx.date || tx.createdAt || 0).getTime();
+    return Number.isFinite(date) && now - date <= 7 * dayMs;
+  });
+  const previous = transactions.filter((tx) => {
+    const date = new Date(tx.date || tx.createdAt || 0).getTime();
+    return Number.isFinite(date) && now - date > 7 * dayMs && now - date <= 14 * dayMs;
+  });
+  const expenses = recent.filter((tx) => ["expense", "debt_payment"].includes(tx.type));
+  const previousExpenses = previous.filter((tx) => ["expense", "debt_payment"].includes(tx.type));
+  const categoryTotals = expenses.reduce((totals, tx) => {
+    const key = tx.category || tx.description || "Gasto";
+    totals[key] = roundMoney((totals[key] || 0) + Number(tx.amount || 0));
+    return totals;
+  }, {});
+  const dangerousCategory = Object.entries(categoryTotals).sort((a, b) => b[1] - a[1])[0] || null;
+  const weekendTotal = expenses.reduce((sum, tx) => {
+    const day = new Date(tx.date || tx.createdAt || 0).getDay();
+    return day === 0 || day === 6 ? sum + Number(tx.amount || 0) : sum;
+  }, 0);
+  const recentTotal = expenses.reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
+  const previousTotal = previousExpenses.reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
+  const trackedDays = new Set(recent.map((tx) => (tx.date || tx.createdAt || "").slice(0, 10)).filter(Boolean)).size;
+  const trend = previousTotal === 0 ? "estable" : recentTotal <= previousTotal ? "mejorando" : "empeorando";
+  const summaries = [];
+
+  if (dangerousCategory) summaries.push(`Tu categoria mas pesada es ${dangerousCategory[0]}: ${formatMoney(dangerousCategory[1])}.`);
+  if (weekendTotal > recentTotal * 0.45 && weekendTotal > 0) summaries.push("Los fines de semana parecen subir tus gastos.");
+  if (trend === "mejorando") summaries.push(`Esta semana mejoraste: gastaste ${formatMoney(Math.max(0, previousTotal - recentTotal))} menos.`);
+  if (trend === "empeorando") summaries.push(`Ojo: esta semana gastaste ${formatMoney(Math.max(0, recentTotal - previousTotal))} mas.`);
+  if (trackedDays < 3) summaries.push("Hay huecos de registro; Johan decide mejor si anotas mas movimientos.");
+
+  return {
+    frequentExpense: dangerousCategory?.[0] || null,
+    dangerousCategory: dangerousCategory ? { name: dangerousCategory[0], amount: roundMoney(dangerousCategory[1]) } : null,
+    weekendSpending: roundMoney(weekendTotal),
+    trend,
+    trackingGaps: trackedDays < 5,
+    trackedDays,
+    summaries: summaries.slice(0, 4)
+  };
+}
+
+function calculateDisciplineScore() {
+  const insights = buildBehavioralInsights();
+  const transactions = financialState.transactions || [];
+  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const recent = transactions.filter((tx) => new Date(tx.date || tx.createdAt || 0).getTime() >= sevenDaysAgo);
+  const income = recent.filter((tx) => tx.type === "income").reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
+  const expenses = recent.filter((tx) => ["expense", "debt_payment"].includes(tx.type)).reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
+  const safe = calculateAdvancedSafeToSpend();
+  let score = 50;
+
+  score += Math.min(12, recent.length * 2);
+  if (income > expenses) score += 12;
+  if (safe.today > 0) score += 8;
+  if (financialState.dailyMission?.status === "completed") score += 8;
+  if (Number(financialState.mainGoal?.savedAmount || financialState.goal?.saved || 0) > 0) score += 8;
+  if (recent.some((tx) => tx.type === "debt_payment")) score += 6;
+  if (expenses > income && expenses > 0) score -= 12;
+  if (insights.trend === "empeorando") score -= 8;
+  if (insights.trackingGaps) score -= 6;
+
+  score = Math.max(0, Math.min(100, Math.round(score)));
+  const trend = score >= Number(financialState.disciplineScore?.score || 50) ? "subiendo" : "bajando";
+  const reason =
+    insights.dangerousCategory?.name
+      ? `Vas ${trend}, pero ${insights.dangerousCategory.name} esta pesando.`
+      : score >= 70
+        ? "Buen control: registras y proteges tu meta."
+        : "Necesito mas registros y menos gasto opcional.";
+
+  return { score, trend, reason };
+}
+
+function runFinancialAutopilot(incomeAmount = 0) {
+  const amount = roundMoney(Number(incomeAmount || 0));
+  const urgentDebt = getUrgentDebt();
+  const needs = getUpcomingFinancialNeeds(7);
+  const safe = calculateAdvancedSafeToSpend();
+  const mainGoal = normalizeMainGoal(financialState.mainGoal || financialState.goal);
+  const debtAllocation = urgentDebt ? roundMoney(Math.min(amount * 0.35, Number(urgentDebt.minimumPayment || urgentDebt.amount || 0))) : 0;
+  const essentialsNeed = needs.reduce((sum, need) => sum + Number(need.amount || 0), 0);
+  const essentialsAllocation = roundMoney(Math.min(Math.max(0, amount - debtAllocation), Math.min(amount * 0.25, essentialsNeed)));
+  const goalAllocation = roundMoney(Math.max(0, amount - debtAllocation - essentialsAllocation));
+  const priority =
+    urgentDebt && daysUntil(urgentDebt.dueDate) !== null && daysUntil(urgentDebt.dueDate) <= 7
+      ? `Paga primero ${urgentDebt.name}.`
+      : needs[0]
+        ? `Separa ${formatMoney(needs[0].amount)} para ${needs[0].name}.`
+        : `Protege ${mainGoal.name || "Casa Colombia"}.`;
+  const lines = amount > 0
+    ? [
+        `Recibiste ${formatMoney(amount)}.`,
+        `Plan: ${formatMoney(debtAllocation)} deuda, ${formatMoney(essentialsAllocation)} basicos, ${formatMoney(goalAllocation)} ${mainGoal.name || "Casa Colombia"}.`,
+        `${priority}`,
+        `Seguro para gastar hoy: ${formatMoney(safe.today)}.`
+      ]
+    : [
+        `${priority}`,
+        `Seguro para gastar hoy: ${formatMoney(safe.today)}.`,
+        `Modo recomendado: ${safe.mode}.`
+      ];
+
+  return {
+    engine: "financialAutopilot",
+    income: amount,
+    priority,
+    allocations: {
+      debt: debtAllocation,
+      essentials: essentialsAllocation,
+      goal: goalAllocation
+    },
+    safeToSpend: safe,
+    risk: safe.risk,
+    answer: lines.slice(0, 5).join("\n"),
+    createdAt: new Date().toISOString()
+  };
+}
+
+function addInternalNotification(type, title, message, priority = "normal") {
+  const notification = {
+    id: crypto.randomUUID(),
+    type,
+    title,
+    message,
+    priority,
+    read: false,
+    createdAt: new Date().toISOString()
+  };
+  financialState.notifications = [notification, ...(financialState.notifications || [])].slice(0, 50);
+  return notification;
+}
+
+function refreshAutonomousBrain(context = {}) {
+  const spendAmount = context.type === "expense" ? Number(context.amount || 0) : Number(context.spendAmount || 0);
+  financialState.safeToSpend = calculateAdvancedSafeToSpend(spendAmount);
+  financialState.behavioralInsights = buildBehavioralInsights();
+  financialState.disciplineScore = calculateDisciplineScore();
+  financialState.autopilot = runFinancialAutopilot(context.type === "income" ? Number(context.amount || 0) : 0);
+  return {
+    autopilot: financialState.autopilot,
+    safeToSpend: financialState.safeToSpend,
+    behavioralInsights: financialState.behavioralInsights,
+    disciplineScore: financialState.disciplineScore
+  };
+}
+
 function calculateAutomaticFinancialMode() {
   const balance = Number(financialState.balance || 0);
   const totalDebt = getTotalDebt();
@@ -1937,7 +2191,8 @@ function getPrimaryAlert() {
 
 function buildDailySummary() {
   applyAutomaticFinancialMode();
-  const safeToSpend = calculateSafeToSpendToday();
+  const autonomous = refreshAutonomousBrain();
+  const safeToSpend = autonomous.safeToSpend.today;
   const urgentDebt = getUrgentDebt();
   const primaryAlert = getPrimaryAlert();
   financialState.mainGoal = normalizeMainGoal(financialState.mainGoal || financialState.goal);
@@ -1954,6 +2209,11 @@ function buildDailySummary() {
     goal: financialState.goal || defaultFinancialState.goal,
     mainGoal,
     goalRemaining,
+    safeToSpendAdvanced: autonomous.safeToSpend,
+    behavioralInsights: autonomous.behavioralInsights,
+    disciplineScore: autonomous.disciplineScore,
+    autopilot: autonomous.autopilot,
+    notifications: financialState.notifications || [],
     primaryAlert,
     suggestions:
       safeToSpend <= 0
@@ -2011,6 +2271,11 @@ function buildFinancialBrainResponse(question, state, processed = {}) {
   const mainGoal = normalizeMainGoal(state.mainGoal || state.goal);
   const goalRemaining = roundMoney(Math.max(0, Number(mainGoal.targetAmount || 0) - Number(mainGoal.savedAmount || 0)));
   const primaryAlert = getPrimaryAlert();
+  const amountsInQuestion = getAmounts(question);
+  const safeAdvanced = calculateAdvancedSafeToSpend(amountsInQuestion[0] || 0);
+  const behavioralInsights = buildBehavioralInsights();
+  const disciplineScore = calculateDisciplineScore();
+  const autopilot = runFinancialAutopilot(0);
   const transactions = getTransactionsForQuestion(question);
   const spentInScope = transactions
     .filter((transaction) => ["expense", "debt_payment"].includes(transaction.type))
@@ -2028,8 +2293,14 @@ function buildFinancialBrainResponse(question, state, processed = {}) {
   let answer = "";
   let decision = "advice";
   const actions = [];
-  const quickReplies = ["Que pago primero?", "Cuanto puedo gastar hoy?", "Resumen de hoy"];
-  const amountsInQuestion = getAmounts(question);
+  const quickReplies = [
+    "💸 ¿Cuánto puedo gastar hoy?",
+    "🧾 ¿Qué pago primero?",
+    "🏠 ¿Cómo va Casa Colombia?",
+    "🔮 Simular futuro",
+    "📅 Próximos pagos",
+    "🔥 Misión de hoy"
+  ];
   const dailyGoalAmount = amountsInQuestion[0] || null;
 
   if ((text.includes("casa") || text.includes("meta")) && dailyGoalAmount && (text.includes("diario") || text.includes("dia"))) {
@@ -2038,14 +2309,18 @@ function buildFinancialBrainResponse(question, state, processed = {}) {
     if (urgentDebt) answer += `\nSolo cuida no descuidar ${urgentDebt.name}.`;
     actions.push(`Separar $${dailyGoalAmount} diario para ${mainGoal.name}.`);
   } else if (text.includes("puedo gastar") || text.includes("gastar hoy") || text.includes("cuanto puedo gastar")) {
-    decision = safeToSpend > 0 ? "approved" : "blocked";
+    decision = safeAdvanced.today > 0 ? "approved" : "blocked";
+    const requestedAmount = amountsInQuestion[0] || 0;
     answer =
-      safeToSpend > 0
-        ? `Si, pero con limite: hoy tu dinero seguro para gastar es $${safeToSpend}. No pases de ahi.`
-        : "Hoy no conviene gastar. Tu dinero seguro para gastos opcionales es $0.";
+      safeAdvanced.today > 0
+        ? `💸 Puedes gastar $${safeAdvanced.today} hoy.\nEsta semana: $${safeAdvanced.week}.\nModo: ${safeAdvanced.mode}.`
+        : "🚫 Hoy no conviene gastar.\nTu dinero seguro esta en $0.\nPrimero protege pagos y Casa Colombia 🏠.";
+    if (requestedAmount > 0 && safeAdvanced.affectsGoal) {
+      answer += `\nSi gastas $${requestedAmount}, retrasas ${safeAdvanced.goalName} ${safeAdvanced.goalDelayDays} dia(s).`;
+    }
     actions.push(
-      safeToSpend > 0
-        ? `Mantente por debajo de $${safeToSpend}.`
+      safeAdvanced.today > 0
+        ? `Mantente por debajo de $${safeAdvanced.today}.`
         : "Congela gastos opcionales hasta mejorar balance o cubrir deuda."
     );
   } else if (text.includes("cuanto tiempo") || text.includes("cuando termino") || text.includes("en cuanto pago") || text.includes("terminar en")) {
@@ -2064,9 +2339,9 @@ function buildFinancialBrainResponse(question, state, processed = {}) {
     }
   } else if (text.includes("pagar primero") || text.includes("pago primero") || text.includes("que pago primero") || text.includes("deuda")) {
     answer = urgentDebt
-      ? `Yo pagaria primero ${urgentDebt.name}. Debes $${roundMoney(Number(urgentDebt.amount || 0))}${urgentDebt.minimumPayment ? ` y el minimo es $${urgentDebt.minimumPayment}` : ""}.`
+      ? `🧾 Paga primero ${urgentDebt.name}.\nDebe pesar mas por monto, minimo o urgencia.\nMinimo: $${urgentDebt.minimumPayment || 0}.`
       : "Ahora mismo no veo una deuda activa para priorizar.";
-    actions.push("Primero sobrevive el dia, luego cubre pagos atrasados/proximos y despues baja deuda.");
+    actions.push("Primero pagos urgentes, luego deuda y despues gasto opcional.");
     if (urgentDebt) actions.push(`Separa dinero para ${urgentDebt.name} antes de cualquier gasto opcional.`);
   } else if (text.includes("fecha de pago") || text.includes("proximo pago") || text.includes("pagos atrasados")) {
     const debtsWithDates = (state.debts || []).filter((debt) => Number(debt.amount || 0) > 0);
@@ -2092,8 +2367,8 @@ function buildFinancialBrainResponse(question, state, processed = {}) {
         : "Hoy no veo un minimo urgente nuevo. Si puedes producir extra, mandalo a deuda o Casa Colombia.";
     actions.push(urgentDebt ? `Primero cubre ${urgentDebt.name}.` : "Mantente por encima del colchon minimo.");
   } else if (text.includes("resumen") || text.includes("voy bien") || text.includes("casa colombia")) {
-    answer = `Resumen rapido: balance $${roundMoney(state.balance)}, ingresos hoy $${roundMoney(state.incomeToday)}, gastos hoy $${roundMoney(state.expensesToday)}, deuda total $${roundMoney(totalDebt)} y ${goalName} va en $${roundMoney(state.goal?.saved || 0)}.`;
-    actions.push(safeToSpend <= 0 ? "Hoy prioridad: no gastar y buscar ingreso extra." : `Puedes moverte con cuidado hasta $${safeToSpend}.`);
+    answer = `🏠 ${mainGoal.name}: faltan $${goalRemaining}.\nSeguro hoy: $${safeAdvanced.today}.\nDisciplina: ${disciplineScore.score}/100.\n${behavioralInsights.summaries[0] || "Registra movimientos para afinar el plan."}`;
+    actions.push(safeAdvanced.today <= 0 ? "Hoy prioridad: no gastar y buscar ingreso extra." : `Puedes moverte con cuidado hasta $${safeAdvanced.today}.`);
     if (urgentDebt) actions.push(`Deuda mas urgente: ${urgentDebt.name}.`);
   } else if (text.includes("recibo") || text.includes("evidencia") || text.includes("foto")) {
     answer = "Todavia no tengo recibos o fotos conectados en esta vista. Puedo guardar la nota del gasto y luego enlazamos evidencia cuando agreguemos archivos.";
@@ -2134,6 +2409,10 @@ function buildFinancialBrainResponse(question, state, processed = {}) {
     actions,
     quickReplies,
     dailySummary: buildDailySummary(),
+    safeToSpendAdvanced: safeAdvanced,
+    behavioralInsights,
+    disciplineScore,
+    autopilot,
     relevantMemory: processed.relevantMemory || searchMemory(question, 5)
   };
 }
@@ -2251,10 +2530,16 @@ function applyFinancialEntry(type, payload = {}) {
       sourceMessage: "Formulario deuda"
     });
     const payoffEstimate = estimateDebtPayoff(debt);
+    const autonomous = refreshAutonomousBrain({ type: "debt", amount: debt.amount });
+    addInternalNotification("debt", "Deuda registrada", `${debt.name} ya entra en prioridades.`, "normal");
     return {
       ok: true,
       debt,
       payoffEstimate,
+      autopilot: autonomous.autopilot,
+      safeToSpend: autonomous.safeToSpend,
+      behavioralInsights: autonomous.behavioralInsights,
+      disciplineScore: autonomous.disciplineScore,
       answer: `💳 Deuda guardada: ${debt.name}. Si pagas $${debt.minimumPayment} ${debt.frequency}, terminas en aprox. ${payoffEstimate.periodsRemaining} ${payoffEstimate.periodLabel}.`
     };
   }
@@ -2267,7 +2552,17 @@ function applyFinancialEntry(type, payload = {}) {
     transaction.date = payload.date;
     transaction.recurring = normalizeMemoryText(payload.recurring) === "si" || payload.recurring === true;
     transaction.note = payload.note || "";
-    return { ok: true, transaction, answer: `💰 Ingreso guardado: $${amount} de ${payload.source}.` };
+    const autonomous = refreshAutonomousBrain({ type: "income", amount });
+    addInternalNotification("income", "Ingreso recibido", `Johan preparo un plan para ${formatMoney(amount)}.`, "normal");
+    return {
+      ok: true,
+      transaction,
+      autopilot: autonomous.autopilot,
+      safeToSpend: autonomous.safeToSpend,
+      behavioralInsights: autonomous.behavioralInsights,
+      disciplineScore: autonomous.disciplineScore,
+      answer: `\u{1F4B0} Ingreso guardado: $${amount} de ${payload.source}.\n${autonomous.autopilot.answer}`
+    };
   }
 
   if (type === "expense") {
@@ -2279,7 +2574,19 @@ function applyFinancialEntry(type, payload = {}) {
     transaction.paymentMethod = payload.paymentMethod;
     transaction.receipt = payload.receipt || "";
     transaction.note = payload.note || "";
-    return { ok: true, transaction, answer: `💸 Gasto guardado: $${amount} en ${payload.category}.` };
+    const autonomous = refreshAutonomousBrain({ type: "expense", amount });
+    if (autonomous.safeToSpend.risk === "high") {
+      addInternalNotification("spend_limit", "Cuidado con gastos", "Ese gasto aprieta tu dinero seguro.", "high");
+    }
+    return {
+      ok: true,
+      transaction,
+      autopilot: autonomous.autopilot,
+      safeToSpend: autonomous.safeToSpend,
+      behavioralInsights: autonomous.behavioralInsights,
+      disciplineScore: autonomous.disciplineScore,
+      answer: `\u{1F4B8} Gasto guardado: $${amount} en ${payload.category}.\nSeguro para gastar hoy: $${autonomous.safeToSpend.today}.`
+    };
   }
 
   return { ok: false, errors: ["Tipo de formulario invalido"] };
@@ -2872,8 +3179,8 @@ function parseFinancialMessage(text) {
   if (isIncome) {
     financialState.balance += amount;
     financialState.incomeToday += amount;
-    const autoPlan = autoAllocateMoney(amount);
     const transaction = addTransaction("income", amount, description);
+    const autoPlan = refreshAutonomousBrain({ type: "income", amount }).autopilot;
     console.log(`[finance] Ingreso detectado: +${amount} (${transaction.description})`);
     return { type: "income", amount, description, autoPlan };
   }
@@ -2890,6 +3197,7 @@ function parseFinancialMessage(text) {
     financialState.balance -= amount;
     financialState.expensesToday += amount;
     const transaction = addTransaction("expense", amount, description);
+    refreshAutonomousBrain({ type: "expense", amount });
     console.log(
       `[finance] Gasto ${decision.decision}: -${amount} (${transaction.description})`
     );
@@ -3721,7 +4029,12 @@ app.post("/financial-entry", (req, res) => {
       alerts: financialState.alerts || [],
       mistakes: financialState.mistakes || [],
       dailyMission: financialState.dailyMission,
-      dailySummary: buildDailySummary()
+      dailySummary: buildDailySummary(),
+      autopilot: result.autopilot || financialState.autopilot || null,
+      safeToSpendAdvanced: result.safeToSpend || financialState.safeToSpend || null,
+      behavioralInsights: result.behavioralInsights || financialState.behavioralInsights || null,
+      disciplineScore: result.disciplineScore || financialState.disciplineScore || null,
+      notifications: financialState.notifications || []
     });
   } catch (error) {
     console.error("[financial-entry] Error:", error);
@@ -4100,6 +4413,10 @@ app.post("/ask-ai", async (req, res) => {
         decision: brainResponse.decision,
         riskLevel: brainResponse.riskLevel,
         safeToSpend: brainResponse.safeToSpend,
+        safeToSpendAdvanced: brainResponse.safeToSpendAdvanced,
+        behavioralInsights: brainResponse.behavioralInsights,
+        disciplineScore: brainResponse.disciplineScore,
+        autopilot: brainResponse.autopilot,
         why: brainResponse.why,
         actions: brainResponse.actions,
         quickReplies: brainResponse.quickReplies,

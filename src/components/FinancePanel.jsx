@@ -80,7 +80,11 @@ export default function FinancePanel({
   const safeSummary = { ...defaultSummary, ...summary };
   const totalDebt = data.debts.reduce((sum, debt) => sum + Number(debt.amount || 0), 0);
   const recentTransactions = data.transactions.filter(isRealTransaction).slice(0, 5);
-  const latestAutoPlan = autoPlan || data.allocations[0] || null;
+  const latestAutoPlan = autoPlan || financialData?.autopilot || data.allocations[0] || null;
+  const autopilotAllocations = latestAutoPlan?.allocations || latestAutoPlan?.distribution || null;
+  const safeAdvanced = financialData?.safeToSpend || dailySummary?.safeToSpendAdvanced || null;
+  const disciplineScore = financialData?.disciplineScore || dailySummary?.disciplineScore || null;
+  const behavioralInsights = financialData?.behavioralInsights || dailySummary?.behavioralInsights || null;
   const missionStats = financialData?.missionStats || {};
   const daily = dailySummary || {
     greeting: `Hey Johan, hoy estas en modo ${data.mode}.`,
@@ -135,8 +139,37 @@ export default function FinancePanel({
         <FinanceMetric label="📈 Ingresos" tone="positive" value={`+${currencyFormatter.format(data.incomeToday)}`} />
         <FinanceMetric label="💸 Gastos" tone="warning" value={`-${currencyFormatter.format(data.expensesToday)}`} />
         <FinanceMetric label="🧾 Deudas" tone="danger" value={currencyFormatter.format(totalDebt)} />
-        <FinanceMetric label="🛡️ Seguro" tone="positive" value={currencyFormatter.format(daily.safeToSpend || 0)} />
+        <FinanceMetric label="🛡️ Seguro" tone="positive" value={currencyFormatter.format(safeAdvanced?.today ?? daily.safeToSpend ?? 0)} />
       </div>
+
+      <section className="priority-card autopilot-summary-card">
+        <div className="panel-subheading">
+          <span>Autopilot</span>
+        </div>
+        {latestAutoPlan ? (
+          <p>{latestAutoPlan.priority || latestAutoPlan.answer || "Plan financiero activo."}</p>
+        ) : (
+          <p>Registra un ingreso para activar el plan automatico.</p>
+        )}
+      </section>
+
+      <section className="discipline-card">
+        <div className="panel-subheading">
+          <span>🧠 Disciplina</span>
+        </div>
+        <strong>{disciplineScore?.score ?? 50}/100</strong>
+        <p>{disciplineScore?.reason || "Aun estoy aprendiendo tu ritmo."}</p>
+        <div className="mission-progress">
+          <span style={{ width: `${Math.min(100, Number(disciplineScore?.score || 50))}%` }} />
+        </div>
+      </section>
+
+      <section className="priority-card">
+        <div className="panel-subheading">
+          <span>Insight rapido</span>
+        </div>
+        <p>{behavioralInsights?.summaries?.[0] || "Registra movimientos para detectar patrones reales."}</p>
+      </section>
 
       <section className="mission-card">
         <div className="panel-subheading">
@@ -226,10 +259,10 @@ export default function FinancePanel({
         </div>
         {latestAutoPlan ? (
           <div>
-            <strong>Ingreso: {currencyFormatter.format(latestAutoPlan.income)}</strong>
-            <p>Gastos: {currencyFormatter.format(latestAutoPlan.distribution.expenses)}</p>
-            <p>Meta: {currencyFormatter.format(latestAutoPlan.distribution.savings)}</p>
-            <p>Deuda: {currencyFormatter.format(latestAutoPlan.distribution.debt)}</p>
+            <strong>Ingreso: {currencyFormatter.format(latestAutoPlan.income || 0)}</strong>
+            <p>Basicos: {currencyFormatter.format(autopilotAllocations?.essentials || autopilotAllocations?.expenses || 0)}</p>
+            <p>Meta: {currencyFormatter.format(autopilotAllocations?.goal || autopilotAllocations?.savings || 0)}</p>
+            <p>Deuda: {currencyFormatter.format(autopilotAllocations?.debt || 0)}</p>
           </div>
         ) : (
           <p>No hay asignaciones todavia.</p>

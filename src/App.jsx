@@ -43,6 +43,7 @@ const createWelcomeChat = () => ({
 
 const initialChat = createWelcomeChat();
 const CHAT_STORAGE_KEY = "johanVisibleChatState";
+const FINANCIAL_STORAGE_KEY = "johanFinancialStateFallback";
 
 function loadVisibleChatState() {
   try {
@@ -51,6 +52,15 @@ function loadVisibleChatState() {
     const parsed = JSON.parse(saved);
     if (!Array.isArray(parsed.chats) || parsed.chats.length === 0) return null;
     return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function loadFinancialStateFallback() {
+  try {
+    const saved = localStorage.getItem(FINANCIAL_STORAGE_KEY);
+    return saved ? JSON.parse(saved) : null;
   } catch {
     return null;
   }
@@ -263,14 +273,15 @@ const buildDailySummaryFromState = (state = {}) => {
 
 export default function App() {
   const savedVisibleChatState = useMemo(() => loadVisibleChatState(), []);
+  const savedFinancialState = useMemo(() => loadFinancialStateFallback(), []);
   const [chats, setChats] = useState(savedVisibleChatState?.chats || [initialChat]);
   const [activeChatId, setActiveChatId] = useState(savedVisibleChatState?.activeChatId || initialChat.id);
-  const [financialData, setFinancialData] = useState(mockFinancialData);
-  const [alerts, setAlerts] = useState(mockFinancialData.alerts);
-  const [memories, setMemories] = useState(mockFinancialData.universalMemory);
-  const [learningProfile, setLearningProfile] = useState(mockFinancialData.learningProfile);
-  const [dailyMission, setDailyMission] = useState(mockFinancialData.dailyMission);
-  const [mistakes, setMistakes] = useState(mockFinancialData.mistakes);
+  const [financialData, setFinancialData] = useState(savedFinancialState || mockFinancialData);
+  const [alerts, setAlerts] = useState(savedFinancialState?.alerts || mockFinancialData.alerts);
+  const [memories, setMemories] = useState(savedFinancialState?.universalMemory || mockFinancialData.universalMemory);
+  const [learningProfile, setLearningProfile] = useState(savedFinancialState?.learningProfile || mockFinancialData.learningProfile);
+  const [dailyMission, setDailyMission] = useState(savedFinancialState?.dailyMission || mockFinancialData.dailyMission);
+  const [mistakes, setMistakes] = useState(savedFinancialState?.mistakes || mockFinancialData.mistakes);
   const [autoPlan, setAutoPlan] = useState(null);
   const [summary, setSummary] = useState(null);
   const [dailySummary, setDailySummary] = useState(null);
@@ -313,6 +324,14 @@ export default function App() {
       // Visible chat persistence is best-effort only.
     }
   }, [chats, activeChatId, activeTab]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(FINANCIAL_STORAGE_KEY, JSON.stringify(financialData));
+    } catch {
+      // Financial fallback persistence is best-effort; backend stays source of truth.
+    }
+  }, [financialData]);
 
   const applyAuthResult = (result) => {
     setAuthToken(result.token);
@@ -424,7 +443,11 @@ export default function App() {
     preloadedDebt = null,
     formData = null,
     onboardingReview = false,
-    quickReplies = []
+    quickReplies = [],
+    autopilot = null,
+    safeToSpendAdvanced = null,
+    behavioralInsights = null,
+    disciplineScore = null
   ) => {
     const assistantMessage = {
       id: crypto.randomUUID(),
@@ -444,7 +467,11 @@ export default function App() {
       preloadedDebt,
       formData,
       onboardingReview,
-      quickReplies
+      quickReplies,
+      autopilot,
+      safeToSpendAdvanced,
+      behavioralInsights,
+      disciplineScore
     };
 
     updateChat(chatId, (chat) => ({
@@ -497,7 +524,11 @@ export default function App() {
         response.preloadedDebt || response.formData || null,
         response.formData,
         response.onboardingReview,
-        response.quickReplies
+        response.quickReplies,
+        response.autopilot,
+        response.safeToSpendAdvanced,
+        response.behavioralInsights,
+        response.disciplineScore
       );
 
       if (response.financialData) {
@@ -510,7 +541,7 @@ export default function App() {
       }
 
       setAlerts(response.alerts || response.financialData?.alerts || []);
-      setAutoPlan(response.autoPlan || response.financialData?.allocations?.[0] || null);
+      setAutoPlan(response.autopilot || response.autoPlan || response.financialData?.autopilot || response.financialData?.allocations?.[0] || null);
 
       setSummary(buildSummaryFromState(response.financialData || financialData));
     } catch (apiError) {
@@ -582,6 +613,7 @@ export default function App() {
     setDailyMission(result.dailyMission || result.financialData.dailyMission || null);
     setMistakes(result.mistakes || result.financialData.mistakes || []);
     setDailySummary(result.dailySummary || buildDailySummaryFromState(result.financialData));
+    setAutoPlan(result.autopilot || result.autoPlan || result.financialData.autopilot || result.financialData.allocations?.[0] || null);
     setSummary(buildSummaryFromState(result.financialData));
   };
 
@@ -590,7 +622,29 @@ export default function App() {
       const result = await submitFinancialEntry(type, data);
       setConnectionStatus("online");
       applyFinancialStateResult(result);
-      appendAssistantMessage(activeChatId, result.answer || "Listo, guarde el dato financiero.");
+      appendAssistantMessage(
+        activeChatId,
+        result.answer || "Listo, guarde el dato financiero.",
+        result.autoPlan || null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        [],
+        null,
+        null,
+        null,
+        null,
+        false,
+        [],
+        result.autopilot || result.financialData?.autopilot || null,
+        result.safeToSpendAdvanced || result.financialData?.safeToSpend || null,
+        result.behavioralInsights || result.financialData?.behavioralInsights || null,
+        result.disciplineScore || result.financialData?.disciplineScore || null
+      );
     } catch (formError) {
       if (formError.isNetworkError || formError.status >= 500) {
         setConnectionStatus("offline");

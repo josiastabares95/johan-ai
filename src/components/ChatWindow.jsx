@@ -1,6 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import OnboardingWizard from "./OnboardingWizard.jsx";
 
+const money = (value) => `$${Math.round(Number(value || 0))}`;
+const AUTOPILOT_QUICK_ACTIONS = [
+  "💸 ¿Cuánto puedo gastar hoy?",
+  "🧾 ¿Qué pago primero?",
+  "🏠 ¿Cómo va Casa Colombia?",
+  "🔮 Simular futuro",
+  "📅 Próximos pagos",
+  "🔥 Misión de hoy"
+];
+
 const DEBT_TYPES = [
   "💳 Tarjeta de crédito",
   "🧾 Préstamo personal",
@@ -590,6 +600,42 @@ export default function ChatWindow({
                   )}
                 </div>
               )}
+              {(item.autopilot || item.safeToSpendAdvanced || item.behavioralInsights || item.disciplineScore) && (
+                <div className="autopilot-grid">
+                  {item.autopilot && (
+                    <div className="autopilot-mini-card">
+                      <span>Autopilot</span>
+                      <strong>{item.autopilot.priority || "Plan listo"}</strong>
+                      {item.autopilot.allocations && (
+                        <p>
+                          Deuda {money(item.autopilot.allocations.debt)} · Basicos {money(item.autopilot.allocations.essentials)} · Meta {money(item.autopilot.allocations.goal)}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  {item.safeToSpendAdvanced && (
+                    <div className="autopilot-mini-card">
+                      <span>Seguro para gastar</span>
+                      <strong>{money(item.safeToSpendAdvanced.today)} hoy</strong>
+                      <p>Semana {money(item.safeToSpendAdvanced.week)} · Modo {item.safeToSpendAdvanced.mode}</p>
+                    </div>
+                  )}
+                  {item.disciplineScore && (
+                    <div className="autopilot-mini-card">
+                      <span>Disciplina</span>
+                      <strong>{item.disciplineScore.score}/100</strong>
+                      <p>{item.disciplineScore.reason}</p>
+                    </div>
+                  )}
+                  {item.behavioralInsights?.summaries?.[0] && (
+                    <div className="autopilot-mini-card">
+                      <span>Insight</span>
+                      <strong>{item.behavioralInsights.trend}</strong>
+                      <p>{item.behavioralInsights.summaries[0]}</p>
+                    </div>
+                  )}
+                </div>
+              )}
               {item.decision !== "advice" && hasValidPending(item.pendingAction) && (
                 <div className="pending-action">
                   <span>Confirmación necesaria</span>
@@ -688,6 +734,14 @@ export default function ChatWindow({
         <button type="button" onClick={() => onOpenManualForm("expense")}>
           💸 Nuevo gasto
         </button>
+      </div>
+
+      <div className="quick-action-rail" aria-label="Acciones rapidas de Johan AI">
+        {AUTOPILOT_QUICK_ACTIONS.map((action) => (
+          <button key={action} type="button" onClick={() => onSendMessage(action)}>
+            {action}
+          </button>
+        ))}
       </div>
 
       <form className="composer" onSubmit={handleSubmit}>
