@@ -97,6 +97,8 @@ const defaultFinancialState = {
     completed: false,
     mode: null,
     step: "start",
+    awaitingDetails: false,
+    detailFor: null,
     answers: {},
     flow: null,
     currentStep: null,
@@ -536,6 +538,8 @@ function normalizeFinancialState(state) {
       completed: Boolean(safeState.onboarding?.completed),
       mode: safeState.onboarding?.mode || safeState.onboarding?.flow || null,
       step: safeState.onboarding?.step || safeState.onboarding?.currentStep || "start",
+      awaitingDetails: Boolean(safeState.onboarding?.awaitingDetails),
+      detailFor: safeState.onboarding?.detailFor || null,
       answers: safeState.onboarding?.answers || safeState.onboarding?.collected || {},
       collected: safeState.onboarding?.collected || {},
       futureSteps: Array.isArray(safeState.onboarding?.futureSteps)
@@ -825,6 +829,8 @@ function startAiOnboarding() {
     completed: false,
     mode: "ai_test",
     step: "income",
+    awaitingDetails: false,
+    detailFor: null,
     answers: financialState.onboarding?.answers || {},
     status: "in_progress",
     updatedAt: new Date().toISOString()
@@ -858,6 +864,11 @@ function buildOnboardingReview() {
 function handleAiOnboardingAnswer(question) {
   const onboarding = financialState.onboarding || {};
   const currentStep = onboarding.step || "income";
+  const cleanAnswer = String(question || "").trim();
+
+  if (onboarding.awaitingDetails && onboarding.detailFor) {
+    return saveOnboardingDetailAnswer(onboarding.detailFor, cleanAnswer);
+  }
 
   if (currentStep === "review") {
     return {
@@ -867,9 +878,23 @@ function handleAiOnboardingAnswer(question) {
     };
   }
 
+  const detailPrompt = getOnboardingDetailPrompt(currentStep, cleanAnswer);
+  if (detailPrompt) {
+    financialState.onboarding.awaitingDetails = true;
+    financialState.onboarding.detailFor = currentStep;
+    financialState.onboarding.updatedAt = new Date().toISOString();
+    saveFinancialState();
+    return {
+      answer: detailPrompt,
+      onboarding: financialState.onboarding,
+      onboardingReview: false,
+      quickReplies: []
+    };
+  }
+
   financialState.onboarding.answers = {
     ...(financialState.onboarding.answers || {}),
-    [currentStep]: String(question || "").trim()
+    [currentStep]: cleanAnswer
   };
 
   const nextStep = onboardingSteps[onboardingSteps.indexOf(currentStep) + 1] || "review";
@@ -885,6 +910,55 @@ function handleAiOnboardingAnswer(question) {
     onboardingReview: nextStep === "review",
     quickReplies: getOnboardingQuickReplies(nextStep)
   };
+}
+
+function saveOnboardingDetailAnswer(step, answer) {
+  financialState.onboarding.answers = {
+    ...(financialState.onboarding.answers || {}),
+    [step]: answer
+  };
+  financialState.onboarding.awaitingDetails = false;
+  financialState.onboarding.detailFor = null;
+
+  const nextStep = onboardingSteps[onboardingSteps.indexOf(step) + 1] || "review";
+  financialState.onboarding.step = nextStep;
+  financialState.onboarding.updatedAt = new Date().toISOString();
+
+  const response = nextStep === "review" ? buildOnboardingReview() : onboardingQuestions[nextStep];
+  saveFinancialState();
+  return {
+    answer: response,
+    onboarding: financialState.onboarding,
+    onboardingReview: nextStep === "review",
+    quickReplies: getOnboardingQuickReplies(nextStep)
+  };
+}
+
+function getOnboardingDetailPrompt(step, answer) {
+  const text = normalizeMemoryText(answer);
+  const raw = String(answer || "").trim().toLowerCase();
+  const isYes =
+    ["si", "sí", "s", "sa", "yes", "claro", "tengo", "agregar"].includes(text) ||
+    (raw.length <= 6 && (raw.startsWith("s") || raw.startsWith("y")));
+  const prompts = {
+    credit_cards:
+      "Perfecto. Agrega los datos de tu tarjeta:\nnombre, deuda, límite, pago mínimo, interés y fecha de pago.",
+    debts:
+      "Agrega los datos de la deuda:\nnombre, monto, pago mensual/mínimo, frecuencia y fecha.",
+    vehicle:
+      "Perfecto. Agrega los datos del carro o moto:\nvehículo, monto pendiente, pago mensual, frecuencia y fecha de pago.",
+    utilities:
+      "Perfecto. Agrega los servicios:\nnombre, monto, frecuencia y fecha aproximada de pago.",
+    goals:
+      "Perfecto. Describe tu meta:\nnombre, monto objetivo y fecha ideal."
+  };
+
+  if (step === "credit_cards" && isYes) return prompts.credit_cards;
+  if (step === "debts" && (isYes || text.includes("agregar deuda"))) return prompts.debts;
+  if (step === "vehicle" && isYes) return prompts.vehicle;
+  if (step === "utilities" && isYes) return prompts.utilities;
+  if (step === "goals" && text === "otro") return prompts.goals;
+  return null;
 }
 
 function getOnboardingQuickReplies(step) {
