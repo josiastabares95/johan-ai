@@ -1,4 +1,4 @@
-const BACKEND_URL = "https://johan-ai-backend.onrender.com";
+export const BACKEND_URL = "https://johan-ai-backend.onrender.com";
 
 function buildTargetUrl(req, routePath) {
   const query = new URLSearchParams();
@@ -15,7 +15,7 @@ function buildTargetUrl(req, routePath) {
   return `${BACKEND_URL}/${routePath}${queryString ? `?${queryString}` : ""}`;
 }
 
-export default async function proxyRequest(req, res, routePath) {
+export default async function proxyRequest(req, res, routePath, options = {}) {
   try {
     const headers = {
       "Content-Type": req.headers["content-type"] || "application/json"
@@ -31,7 +31,9 @@ export default async function proxyRequest(req, res, routePath) {
 
     const hasBody = !["GET", "HEAD"].includes(req.method);
     const body = hasBody
-      ? typeof req.body === "string"
+      ? options.bodyOverride !== undefined
+        ? JSON.stringify(options.bodyOverride)
+        : typeof req.body === "string"
         ? req.body
         : JSON.stringify(req.body || {})
       : undefined;
@@ -59,7 +61,8 @@ export default async function proxyRequest(req, res, routePath) {
     res.status(response.status);
 
     if (contentType.includes("application/json")) {
-      return res.json(await response.json());
+      const json = await response.json();
+      return res.json(options.transformJson ? options.transformJson(json) : json);
     }
 
     return res.send(await response.text());
