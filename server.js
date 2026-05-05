@@ -1042,19 +1042,23 @@ function getOnboardingQuickReplies(step) {
   return replies[step] || [];
 }
 
-function saveOnboardingProfile() {
+function saveOnboardingProfile(options = {}) {
   const answers = financialState.onboarding?.answers || {};
   const now = new Date().toISOString();
   const asArray = (value) => (Array.isArray(value) ? value : []);
   const money = (value) => roundMoney(Number(value || 0));
+  const moneyOrExisting = (value, existing = 0) =>
+    value === "" || value === null || value === undefined ? existing : money(value);
   const stripEmoji = (value) =>
     String(value || "")
       .replace(/[^\p{Letter}\p{Number}\s/+-]/gu, "")
       .replace(/\s+/g, " ")
       .trim();
+  const mergeMode = options.mergeMode === "replace" ? "replace" : "combine";
 
   const goalAnswer = answers.goal && typeof answers.goal === "object" ? answers.goal : {};
   const goalName =
+    goalAnswer.name ||
     goalAnswer.customName ||
     stripEmoji(goalAnswer.option) ||
     (typeof answers.goal === "string" ? answers.goal : "") ||
@@ -1062,22 +1066,16 @@ function saveOnboardingProfile() {
     "Casa Colombia";
 
   const incomeAnswer = answers.income && typeof answers.income === "object" ? answers.income : {};
-  const selectedIncomeTypes = asArray(incomeAnswer.selectedTypes).map(stripEmoji).filter(Boolean);
-  const incomingSources = [];
-  if (selectedIncomeTypes.length > 0) {
-    selectedIncomeTypes
-      .filter((type) => !type.toLowerCase().includes("agregar fuente"))
-      .forEach((type) => {
-        incomingSources.push({
-          type,
-          sourceName: type,
-          amount: 0,
-          frequency: "variable",
-          createdAt: now,
-          source: "onboarding"
-        });
-      });
-  }
+  const incomingSources = asArray(incomeAnswer.sources).map((source) => ({
+    type: stripEmoji(source.type) || "Ingreso",
+    sourceName: source.sourceName || stripEmoji(source.type) || "Fuente sin nombre",
+    amount: money(source.amount),
+    frequency: source.frequency || "variable",
+    note: source.note || "",
+    createdAt: source.createdAt || now,
+    updatedAt: now,
+    source: "onboarding"
+  }));
   if (incomeAnswer.sourceName || incomeAnswer.amount || incomeAnswer.frequency) {
     incomingSources.push({
       type: "Fuente personalizada",
@@ -1093,21 +1091,20 @@ function saveOnboardingProfile() {
   }
 
   const debtAnswer = answers.debts && typeof answers.debts === "object" ? answers.debts : {};
-  const selectedDebtTypes = asArray(debtAnswer.selectedTypes).map(stripEmoji).filter(Boolean);
-  const debtName = debtAnswer.name || "";
-  const incomingDebts = [];
-  if (debtName || debtAnswer.amount || debtAnswer.minimumPayment) {
-    incomingDebts.push({
-      name: debtName || "Deuda sin nombre",
-      type: selectedDebtTypes.find((type) => !type.toLowerCase().includes("agregar deuda") && !type.toLowerCase().includes("no tengo")) || "Otro",
-      amount: money(debtAnswer.amount),
-      minimumPayment: money(debtAnswer.minimumPayment),
-      frequency: debtAnswer.frequency || "mensual",
-      dueDate: debtAnswer.dueDate || null,
-      createdAt: now,
-      updatedAt: now
-    });
-  }
+  const incomingDebts = debtAnswer.noDebts
+    ? []
+    : asArray(debtAnswer.items).map((debt) => ({
+        name: debt.name || "Deuda sin nombre",
+        type: stripEmoji(debt.type) || "Otro",
+        amount: money(debt.amount),
+        minimumPayment: money(debt.minimumPayment),
+        frequency: debt.frequency || "mensual",
+        dueDate: debt.dueDate || null,
+        apr: debt.apr ? Number(debt.apr || 0) : undefined,
+        note: debt.note || "",
+        createdAt: debt.createdAt || now,
+        updatedAt: now
+      }));
   if (typeof answers.debts === "string" && answers.debts.trim() && !normalizeMemoryText(answers.debts).includes("no tengo")) {
     incomingDebts.push({ name: answers.debts.trim(), amount: 0, minimumPayment: 0, frequency: "mensual", createdAt: now, updatedAt: now });
   }
@@ -1120,33 +1117,36 @@ function saveOnboardingProfile() {
     housingAnswer.type && !stripEmoji(housingAnswer.type).toLowerCase().includes("no pago")
       ? {
           type: "housing",
-          name: stripEmoji(housingAnswer.type),
-          description: stripEmoji(housingAnswer.type),
+          name: housingAnswer.name || stripEmoji(housingAnswer.type),
+          description: housingAnswer.name || stripEmoji(housingAnswer.type),
           amount: money(housingAnswer.amount),
           frequency: "mensual",
           dueDate: housingAnswer.dueDate || null,
+          note: housingAnswer.note || "",
           createdAt: now,
           source: "onboarding"
         }
       : null,
-    asArray(utilitiesAnswer.selectedTypes).length || utilitiesAnswer.amount || utilitiesAnswer.note
-      ? {
-          type: "utilities",
-          name: asArray(utilitiesAnswer.selectedTypes).map(stripEmoji).join(", ") || utilitiesAnswer.note || "Servicios",
-          description: utilitiesAnswer.note || asArray(utilitiesAnswer.selectedTypes).map(stripEmoji).join(", "),
-          amount: money(utilitiesAnswer.amount),
-          frequency: "mensual",
-          createdAt: now,
-          source: "onboarding"
-        }
-      : null,
+    ...asArray(utilitiesAnswer.services).map((service) => ({
+      type: "utilities",
+      category: stripEmoji(service.type) || "Servicio",
+      name: service.name || stripEmoji(service.type) || "Servicio",
+      description: service.note || service.name || stripEmoji(service.type),
+      amount: money(service.amount),
+      frequency: service.frequency || "mensual",
+      dueDate: service.dueDate || null,
+      note: service.note || "",
+      createdAt: now,
+      source: "onboarding"
+    })),
     foodAnswer.type || foodAnswer.range
       ? {
           type: "food",
           name: stripEmoji(foodAnswer.type) || "Comida",
-          description: `${stripEmoji(foodAnswer.type)} ${foodAnswer.range || ""}`.trim(),
-          amount: 0,
+          description: `${stripEmoji(foodAnswer.type)} ${foodAnswer.customAmount ? `$${foodAnswer.customAmount}` : foodAnswer.range || ""}`.trim(),
+          amount: money(foodAnswer.customAmount),
           frequency: "semanal",
+          note: foodAnswer.note || "",
           createdAt: now,
           source: "onboarding"
         }
@@ -1155,9 +1155,10 @@ function saveOnboardingProfile() {
       ? {
           type: "transport",
           name: stripEmoji(transportAnswer.type) || "Transporte",
-          description: `${stripEmoji(transportAnswer.type)} ${transportAnswer.range || ""}`.trim(),
-          amount: 0,
+          description: `${stripEmoji(transportAnswer.type)} ${transportAnswer.customAmount ? `$${transportAnswer.customAmount}` : transportAnswer.range || ""}`.trim(),
+          amount: money(transportAnswer.customAmount),
           frequency: "semanal",
+          note: transportAnswer.note || "",
           createdAt: now,
           source: "onboarding"
         }
@@ -1180,20 +1181,23 @@ function saveOnboardingProfile() {
     return merged;
   };
 
-  financialState.incomeSources = mergeByName(financialState.incomeSources || [], incomingSources);
-  financialState.debts = mergeByName(financialState.debts || [], incomingDebts);
-  financialState.recurringPayments = mergeByName(financialState.recurringPayments || [], recurringFromWizard);
+  financialState.incomeSources = mergeMode === "replace" ? incomingSources : mergeByName(financialState.incomeSources || [], incomingSources);
+  financialState.debts = mergeMode === "replace" ? incomingDebts : mergeByName(financialState.debts || [], incomingDebts);
+  financialState.recurringPayments = mergeMode === "replace" ? recurringFromWizard : mergeByName(financialState.recurringPayments || [], recurringFromWizard);
   financialState.profile = {
     ...(financialState.profile || {}),
     reconstructedAt: now,
+    onboardingMergeMode: mergeMode,
     currentState: answers.current_state || null,
     onboardingAnswers: answers
   };
   financialState.mainGoal = normalizeMainGoal({
-    ...financialState.mainGoal,
+    ...(mergeMode === "replace" ? {} : financialState.mainGoal),
     name: goalName,
-    targetAmount: money(goalAnswer.targetAmount) || financialState.mainGoal?.targetAmount || 0,
-    targetDate: goalAnswer.targetDate || financialState.mainGoal?.targetDate || null
+    targetAmount: moneyOrExisting(goalAnswer.targetAmount, mergeMode === "replace" ? 0 : financialState.mainGoal?.targetAmount || 0),
+    savedAmount: moneyOrExisting(goalAnswer.savedAmount, mergeMode === "replace" ? 0 : financialState.mainGoal?.savedAmount || 0),
+    targetDate: goalAnswer.targetDate || (mergeMode === "replace" ? null : financialState.mainGoal?.targetDate || null),
+    priority: goalAnswer.priority || financialState.mainGoal?.priority || "high"
   });
   financialState.onboarding.completed = true;
   financialState.onboarding.status = "completed";
@@ -3648,7 +3652,7 @@ app.post("/onboarding", (req, res) => {
       return res.json({ ...result, financialData: financialState });
     }
     if (action === "save_profile") {
-      return res.json(saveOnboardingProfile());
+      return res.json(saveOnboardingProfile({ mergeMode: data.mergeMode }));
     }
     if (action === "complete_later") {
       financialState.onboarding.status = "paused";

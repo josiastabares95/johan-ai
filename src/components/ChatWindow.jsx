@@ -336,6 +336,7 @@ function ExpenseForm({ id, values, setField, onSave, onSkip }) {
 
 export default function ChatWindow({
   chat,
+  financialData,
   connectionStatus,
   isLoading,
   onboarding,
@@ -513,9 +514,10 @@ export default function ChatWindow({
         {isAiWizardActive && (
           <OnboardingWizard
             onboarding={onboarding}
+            financialData={financialData}
             isLoading={isLoading}
             onSubmit={onOnboardingWizardSubmit}
-            onSave={() => onOnboardingAction("save_profile")}
+            onSave={(mergeMode) => onOnboardingAction("save_profile", { mergeMode })}
             onCompleteLater={() => onOnboardingAction("complete_later")}
           />
         )}

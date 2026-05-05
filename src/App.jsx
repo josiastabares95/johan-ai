@@ -603,10 +603,10 @@ export default function App() {
     );
   };
 
-  const handleOnboardingAction = async (action) => {
+  const handleOnboardingAction = async (action, data = {}) => {
     try {
       const mappedAction = action === "ai" ? "ai_test" : action;
-      const result = await updateOnboarding(mappedAction, { completed: ["skip", "bank_later"].includes(action) });
+      const result = await updateOnboarding(mappedAction, { ...data, completed: ["skip", "bank_later"].includes(action) });
       setConnectionStatus("online");
       if (result.financialData) {
         setFinancialData(result.financialData);
@@ -820,6 +820,7 @@ export default function App() {
       ) : (
         <ChatWindow
           chat={activeChat}
+          financialData={financialData}
           connectionStatus={connectionStatus}
           error={error}
           isLoading={isLoading}
