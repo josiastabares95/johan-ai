@@ -42,6 +42,19 @@ const createWelcomeChat = () => ({
 });
 
 const initialChat = createWelcomeChat();
+const CHAT_STORAGE_KEY = "johanVisibleChatState";
+
+function loadVisibleChatState() {
+  try {
+    const saved = localStorage.getItem(CHAT_STORAGE_KEY);
+    if (!saved) return null;
+    const parsed = JSON.parse(saved);
+    if (!Array.isArray(parsed.chats) || parsed.chats.length === 0) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
 
 const debtTypeOptions = [
   "💳 Tarjeta de crédito",
@@ -249,8 +262,9 @@ const buildDailySummaryFromState = (state = {}) => {
 };
 
 export default function App() {
-  const [chats, setChats] = useState([initialChat]);
-  const [activeChatId, setActiveChatId] = useState(initialChat.id);
+  const savedVisibleChatState = useMemo(() => loadVisibleChatState(), []);
+  const [chats, setChats] = useState(savedVisibleChatState?.chats || [initialChat]);
+  const [activeChatId, setActiveChatId] = useState(savedVisibleChatState?.activeChatId || initialChat.id);
   const [financialData, setFinancialData] = useState(mockFinancialData);
   const [alerts, setAlerts] = useState(mockFinancialData.alerts);
   const [memories, setMemories] = useState(mockFinancialData.universalMemory);
@@ -279,7 +293,7 @@ export default function App() {
     }
   });
   const [isAuthLoading, setIsAuthLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState("chat"); // "chat" | "calendar"
+  const [activeTab, setActiveTab] = useState(savedVisibleChatState?.activeTab || "chat"); // "chat" | "calendar"
 
   const activeChat = useMemo(
     () => chats.find((chat) => chat.id === activeChatId) ?? chats[0],
@@ -291,6 +305,14 @@ export default function App() {
       refreshFinancialContext();
     }
   }, [authTokenState]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify({ chats, activeChatId, activeTab }));
+    } catch {
+      // Visible chat persistence is best-effort only.
+    }
+  }, [chats, activeChatId, activeTab]);
 
   const applyAuthResult = (result) => {
     setAuthToken(result.token);
@@ -340,6 +362,7 @@ export default function App() {
     setAuthTokenState("");
     setUser(null);
     localStorage.removeItem("johanUser");
+    localStorage.removeItem(CHAT_STORAGE_KEY);
     setFinancialData(mockFinancialData);
     setChats([cleanChat]);
     setActiveChatId(cleanChat.id);

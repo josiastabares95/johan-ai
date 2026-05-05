@@ -8,11 +8,11 @@ const STEPS = [
   { key: "utilities", title: "Servicios" },
   { key: "food", title: "Comida" },
   { key: "transport", title: "Transporte" },
-  { key: "current_state", title: "Estado actual" },
   { key: "review", title: "Revision final" }
 ];
 
-const frequencies = ["semanal", "quincenal", "mensual", "variable"];
+const frequencies = ["diario", "semanal", "quincenal", "mensual", "variable"];
+const spendingFrequencies = ["diario", "semanal", "quincenal", "mensual"];
 const paymentFrequencies = ["semanal", "quincenal", "mensual"];
 const priorities = ["baja", "media", "alta"];
 const amountRanges = ["$0-$50", "$50-$100", "$100-$200", "$200+"];
@@ -50,8 +50,7 @@ const stepOptions = {
   housing: ["🏠 Renta", "🏡 Hipoteca", "👨‍👩‍👧 Vivo con familia", "❌ No pago vivienda"],
   utilities: ["📱 Celular", "🌐 Internet", "💡 Luz", "💧 Agua", "🚗 Seguro", "🎬 Suscripciones", "❓ Otro"],
   food: ["🛒 Mercado", "🍔 Comida fuera", "🍱 Ambos"],
-  transport: ["⛽ Gasolina", "🚌 Transporte publico", "🚗 Carro propio", "🚕 Uber/Lyft", "❌ No aplica"],
-  current_state: ["🟢 Controlado", "🟡 Mas o menos", "🔴 Descontrolado", "😰 Urgente", "🧠 Quiero plan inteligente"]
+  transport: ["⛽ Gasolina", "🚌 Transporte publico", "🚗 Carro propio", "🚕 Uber/Lyft", "❓ Otro"]
 };
 
 const stripEmoji = (value = "") =>
@@ -79,6 +78,17 @@ function makeIncome(type) {
     sourceName: stripEmoji(type),
     amount: "",
     frequency: "",
+    note: ""
+  };
+}
+
+function makeTransport(type) {
+  return {
+    id: createId(),
+    type,
+    name: stripEmoji(type),
+    amount: "",
+    frequency: "semanal",
     note: ""
   };
 }
@@ -119,9 +129,8 @@ function defaultDraft(stepKey, saved) {
     debts: { selectedTypes: [], items: [], noDebts: false },
     housing: { type: "", name: "", amount: "", dueDate: "", note: "" },
     utilities: { selectedTypes: [], services: [] },
-    food: { type: "", range: "", customAmount: "", note: "" },
-    transport: { type: "", range: "", customAmount: "", note: "" },
-    current_state: { state: "" }
+    food: { type: "", range: "", customAmount: "", frequency: "semanal", note: "" },
+    transport: { selectedTypes: [], items: [] }
   };
   return defaults[stepKey] || {};
 }
@@ -254,6 +263,14 @@ export default function OnboardingWizard({
     });
   };
 
+  const addIncome = (type) => {
+    setDraft((current) => ({
+      ...current,
+      selectedTypes: Array.from(new Set([...(current.selectedTypes || []), type])),
+      sources: [...(current.sources || []), makeIncome(type)]
+    }));
+  };
+
   const addDebt = (type) => {
     setDraft((current) => ({
       ...current,
@@ -280,6 +297,14 @@ export default function OnboardingWizard({
         services: [...(current.services || []), makeService(type)]
       };
     });
+  };
+
+  const addTransport = (type) => {
+    setDraft((current) => ({
+      ...current,
+      selectedTypes: Array.from(new Set([...(current.selectedTypes || []), type])),
+      items: [...(current.items || []), makeTransport(type)]
+    }));
   };
 
   const validateStep = () => {
@@ -310,6 +335,16 @@ export default function OnboardingWizard({
         if (missing.length) nextErrors.push(`Deuda ${index + 1}: falta ${missing.join(" y ")}.`);
       });
       if ((draft.items || []).length === 0) nextErrors.push("Agrega una deuda o marca que no tienes deudas.");
+    }
+    if (step.key === "transport") {
+      (draft.items || []).forEach((transport, index) => {
+        const missing = [
+          !transport.name ? "nombre" : null,
+          !Number(transport.amount || 0) ? "monto" : null,
+          !transport.frequency ? "frecuencia" : null
+        ].filter(Boolean);
+        if (missing.length) nextErrors.push(`Transporte ${index + 1}: falta ${missing.join(" y ")}.`);
+      });
     }
     setErrors(nextErrors);
     return nextErrors.length === 0;
@@ -405,6 +440,11 @@ export default function OnboardingWizard({
           </MiniCard>
         ))}
       </div>
+      {(draft.sources || []).length > 0 && (
+        <button type="button" className="wizard-inline-add" onClick={() => addIncome((draft.sources || []).at(-1)?.type || stepOptions.income[1])}>
+          + Agregar otro ingreso
+        </button>
+      )}
     </>
   );
 
@@ -525,11 +565,11 @@ export default function OnboardingWizard({
     </>
   );
 
-  const renderSpendingStep = (options, label) => (
+  const renderFoodStep = () => (
     <>
-      <p>Usa un rango rapido o escribe tu monto real personalizado.</p>
+      <p>Usa rango rapido o monto real. La frecuencia la eliges tu.</p>
       <div className="wizard-chip-grid">
-        {options.map((option) => (
+        {stepOptions.food.map((option) => (
           <Chip key={option} active={draft.type === option} onClick={() => setField("type", option)}>
             {option}
           </Chip>
@@ -538,7 +578,7 @@ export default function OnboardingWizard({
       <div className="wizard-chip-grid compact">
         {amountRanges.map((range) => (
           <Chip key={range} active={draft.range === range} onClick={() => setField("range", range)}>
-            {label}: {range}
+            Rango: {range}
           </Chip>
         ))}
       </div>
@@ -546,10 +586,58 @@ export default function OnboardingWizard({
         <Field label="Monto personalizado">
           <input type="number" value={draft.customAmount || ""} onChange={(event) => setField("customAmount", event.target.value)} placeholder="0" />
         </Field>
+        <Field label="Frecuencia del monto">
+          <select value={draft.frequency || ""} onChange={(event) => setField("frequency", event.target.value)}>
+            <option value="">Selecciona</option>
+            {spendingFrequencies.map((frequency) => <option key={frequency} value={frequency}>{frequency}</option>)}
+          </select>
+        </Field>
         <Field label="Nota opcional">
           <input value={draft.note || ""} onChange={(event) => setField("note", event.target.value)} />
         </Field>
       </div>
+    </>
+  );
+
+  const renderTransport = () => (
+    <>
+      <p>Agrega todos los medios que usas. Cada uno puede tener monto y frecuencia propia.</p>
+      <div className="wizard-chip-grid">
+        {stepOptions.transport.map((option) => (
+          <Chip key={option} active={(draft.selectedTypes || []).includes(option)} onClick={() => addTransport(option)}>
+            {option}
+          </Chip>
+        ))}
+        <Chip active={(draft.items || []).length === 0 && (draft.selectedTypes || []).includes("No aplica")} onClick={() => setDraft((current) => ({ ...current, selectedTypes: ["No aplica"], items: [] }))}>
+          ❌ No aplica
+        </Chip>
+      </div>
+      <div className="wizard-mini-stack">
+        {(draft.items || []).map((item) => (
+          <MiniCard key={item.id} title={item.name || "Transporte"} subtitle={item.type} onRemove={() => removeItem("items", item.id)}>
+            <Field label="Nombre">
+              <input value={item.name || ""} onChange={(event) => setItemField("items", item.id, "name", event.target.value)} />
+            </Field>
+            <Field label="Monto">
+              <input type="number" value={item.amount || ""} onChange={(event) => setItemField("items", item.id, "amount", event.target.value)} />
+            </Field>
+            <Field label="Frecuencia">
+              <select value={item.frequency || ""} onChange={(event) => setItemField("items", item.id, "frequency", event.target.value)}>
+                <option value="">Selecciona</option>
+                {spendingFrequencies.map((frequency) => <option key={frequency} value={frequency}>{frequency}</option>)}
+              </select>
+            </Field>
+            <Field label="Nota opcional">
+              <input value={item.note || ""} onChange={(event) => setItemField("items", item.id, "note", event.target.value)} />
+            </Field>
+          </MiniCard>
+        ))}
+      </div>
+      {(draft.items || []).length > 0 && (
+        <button type="button" className="wizard-inline-add" onClick={() => addTransport((draft.items || []).at(-1)?.type || stepOptions.transport[0])}>
+          + Agregar otro transporte
+        </button>
+      )}
     </>
   );
 
@@ -574,13 +662,12 @@ export default function OnboardingWizard({
           {(answers.utilities?.services || []).map((service) => <SummaryText key={service.id}>{service.name}: ${service.amount} {service.frequency}</SummaryText>)}
         </SummaryBlock>
         <SummaryBlock title="Comida">
-          <SummaryText>{stripEmoji(answers.food?.type)} {answers.food?.customAmount ? `$${answers.food.customAmount}` : answers.food?.range}</SummaryText>
+          <SummaryText>{stripEmoji(answers.food?.type)} {answers.food?.customAmount ? `$${answers.food.customAmount}` : answers.food?.range} {answers.food?.frequency || ""}</SummaryText>
         </SummaryBlock>
         <SummaryBlock title="Transporte">
-          <SummaryText>{stripEmoji(answers.transport?.type)} {answers.transport?.customAmount ? `$${answers.transport.customAmount}` : answers.transport?.range}</SummaryText>
-        </SummaryBlock>
-        <SummaryBlock title="Estado actual">
-          <SummaryText>{stripEmoji(answers.current_state?.state)}</SummaryText>
+          {(answers.transport?.items || []).length > 0
+            ? answers.transport.items.map((item) => <SummaryText key={item.id}>{item.name}: ${item.amount} {item.frequency}</SummaryText>)
+            : <SummaryText>No aplica</SummaryText>}
         </SummaryBlock>
       </div>
       <div className="wizard-correction-grid">
@@ -609,22 +696,8 @@ export default function OnboardingWizard({
     if (step.key === "debts") return renderDebts();
     if (step.key === "housing") return renderHousing();
     if (step.key === "utilities") return renderUtilities();
-    if (step.key === "food") return renderSpendingStep(stepOptions.food, "Rango semanal");
-    if (step.key === "transport") return renderSpendingStep(stepOptions.transport, "Rango semanal");
-    if (step.key === "current_state") {
-      return (
-        <>
-          <p>Esto ajusta el tono del plan despues de guardar.</p>
-          <div className="wizard-chip-grid">
-            {stepOptions.current_state.map((option) => (
-              <Chip key={option} active={draft.state === option} onClick={() => setField("state", option)}>
-                {option}
-              </Chip>
-            ))}
-          </div>
-        </>
-      );
-    }
+    if (step.key === "food") return renderFoodStep();
+    if (step.key === "transport") return renderTransport();
     return renderReview();
   };
 

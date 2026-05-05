@@ -782,7 +782,6 @@ const onboardingSteps = [
   "utilities",
   "food",
   "transport",
-  "current_state",
   "review"
 ];
 
@@ -793,8 +792,7 @@ const onboardingQuestions = {
   housing: "🏠 ¿Como pagas vivienda? Dime monto y fecha si aplica.",
   utilities: "💡 ¿Que servicios o suscripciones pagas normalmente?",
   food: "🛒 ¿Como se va tu gasto de comida por semana?",
-  transport: "⛽ ¿Como te mueves y cuanto cuesta por semana?",
-  current_state: "🧠 ¿Como te sientes ahora con tu dinero?"
+  transport: "⛽ ¿Como te mueves y cuanto cuesta?"
 };
 
 function isAiOnboardingStartRequest(question) {
@@ -868,7 +866,6 @@ function buildOnboardingReview() {
     `Servicios: ${read(answers.utilities)}`,
     `Comida: ${read(answers.food)}`,
     `Transporte: ${read(answers.transport)}`,
-    `Estado actual: ${read(answers.current_state)}`,
     "",
     "¿Quieres guardar este perfil financiero?"
   ].join("\n");
@@ -1036,7 +1033,6 @@ function getOnboardingQuickReplies(step) {
     utilities: ["Celular", "Internet", "Luz", "Agua", "Suscripciones"],
     food: ["Mercado", "Comida fuera", "Ambos"],
     transport: ["Gasolina", "Transporte publico", "No aplica"],
-    current_state: ["Controlado", "Mas o menos", "Descontrolado", "Urgente"],
     review: ["Guardar perfil", "Corregir algo", "Completar después"]
   };
   return replies[step] || [];
@@ -1145,24 +1141,23 @@ function saveOnboardingProfile(options = {}) {
           name: stripEmoji(foodAnswer.type) || "Comida",
           description: `${stripEmoji(foodAnswer.type)} ${foodAnswer.customAmount ? `$${foodAnswer.customAmount}` : foodAnswer.range || ""}`.trim(),
           amount: money(foodAnswer.customAmount),
-          frequency: "semanal",
+          frequency: foodAnswer.frequency || "semanal",
           note: foodAnswer.note || "",
           createdAt: now,
           source: "onboarding"
         }
       : null,
-    transportAnswer.type || transportAnswer.range
-      ? {
-          type: "transport",
-          name: stripEmoji(transportAnswer.type) || "Transporte",
-          description: `${stripEmoji(transportAnswer.type)} ${transportAnswer.customAmount ? `$${transportAnswer.customAmount}` : transportAnswer.range || ""}`.trim(),
-          amount: money(transportAnswer.customAmount),
-          frequency: "semanal",
-          note: transportAnswer.note || "",
-          createdAt: now,
-          source: "onboarding"
-        }
-      : null
+    ...asArray(transportAnswer.items).map((item) => ({
+      type: "transport",
+      category: stripEmoji(item.type) || "Transporte",
+      name: item.name || stripEmoji(item.type) || "Transporte",
+      description: item.note || item.name || stripEmoji(item.type),
+      amount: money(item.amount),
+      frequency: item.frequency || "semanal",
+      note: item.note || "",
+      createdAt: now,
+      source: "onboarding"
+    }))
   ].filter(Boolean);
 
   const mergeByName = (existing = [], incoming = []) => {
@@ -1188,7 +1183,7 @@ function saveOnboardingProfile(options = {}) {
     ...(financialState.profile || {}),
     reconstructedAt: now,
     onboardingMergeMode: mergeMode,
-    currentState: answers.current_state || null,
+    autoFinancialState: calculateAutomaticFinancialMode(),
     onboardingAnswers: answers
   };
   financialState.mainGoal = normalizeMainGoal({
@@ -1203,6 +1198,7 @@ function saveOnboardingProfile(options = {}) {
   financialState.onboarding.status = "completed";
   financialState.onboarding.step = "review";
   financialState.onboarding.updatedAt = now;
+  financialState.mode = calculateAutomaticFinancialMode();
   saveFinancialState();
   return {
     answer:
@@ -1987,7 +1983,8 @@ function isFinancialBrainQuestion(question) {
     "recibo",
     "evidencia",
     "foto",
-    "casa colombia"
+    "casa colombia",
+    "casa"
   ];
 
   return phrases.some((phrase) => text.includes(phrase));
@@ -2032,8 +2029,15 @@ function buildFinancialBrainResponse(question, state, processed = {}) {
   let decision = "advice";
   const actions = [];
   const quickReplies = ["Que pago primero?", "Cuanto puedo gastar hoy?", "Resumen de hoy"];
+  const amountsInQuestion = getAmounts(question);
+  const dailyGoalAmount = amountsInQuestion[0] || null;
 
-  if (text.includes("puedo gastar") || text.includes("gastar hoy") || text.includes("cuanto puedo gastar")) {
+  if ((text.includes("casa") || text.includes("meta")) && dailyGoalAmount && (text.includes("diario") || text.includes("dia"))) {
+    const monthly = roundMoney(dailyGoalAmount * 30);
+    answer = `🔥 Si, eso ayuda bastante.\n$${dailyGoalAmount} diarios son aprox. $${monthly} al mes.\nEso te acerca mas rapido a ${mainGoal.name} 🏠`;
+    if (urgentDebt) answer += `\nSolo cuida no descuidar ${urgentDebt.name}.`;
+    actions.push(`Separar $${dailyGoalAmount} diario para ${mainGoal.name}.`);
+  } else if (text.includes("puedo gastar") || text.includes("gastar hoy") || text.includes("cuanto puedo gastar")) {
     decision = safeToSpend > 0 ? "approved" : "blocked";
     answer =
       safeToSpend > 0
@@ -2111,11 +2115,18 @@ function buildFinancialBrainResponse(question, state, processed = {}) {
 
   const goalLine =
     mainGoal.targetAmount > 0
-      ? `🎯 Objetivo ${mainGoal.name}: faltan $${goalRemaining}. Hoy deberias acercarte con $${mainGoal.dailyNeeded || 0}, esta semana $${mainGoal.weeklyNeeded || 0}.`
-      : `🎯 Objetivo principal: ${mainGoal.name}. Define un monto objetivo para calcular el ritmo exacto.`;
+      ? `🎯 ${mainGoal.name}: faltan $${goalRemaining}. Hoy: $${mainGoal.dailyNeeded || 0}.`
+      : `🎯 Objetivo: ${mainGoal.name}. Falta monto para calcular ritmo.`;
+
+  const finalAnswer = [answer, goalLine]
+    .filter(Boolean)
+    .join("\n")
+    .split("\n")
+    .slice(0, 6)
+    .join("\n");
 
   return {
-    answer: `${answer}\n\n${goalLine}\n\nPor que: ${why}`,
+    answer: finalAnswer,
     decision,
     riskLevel,
     safeToSpend,
@@ -3461,6 +3472,8 @@ async function askOpenAI(question, processed) {
           "El JSON debe tener esta forma minima: {\"answer\":\"string\",\"intent\":\"string\",\"diagnosis\":\"string\",\"recommendedAction\":\"string\",\"needsMoreInfo\":boolean,\"questionToUser\":\"string|null\",\"riskLevel\":\"low|medium|high\",\"decision\":object|null}.",
           "No des respuestas genericas. Prohibido responder frases como 'Estoy contigo', 'Puedo registrar ingresos', 'Dime si quieres revisar' o equivalentes.",
           "Si el usuario pide consejo, usa balance, ingresos, gastos, deudas, meta, alertas, errores y memoria para dar un diagnostico real y una accion concreta.",
+          "Responde breve: maximo 4 a 6 lineas salvo que el usuario pida detalle. Usa frases cortas, relajadas y claras, con emojis estrategicos.",
+          "Evita parrafos largos, listas enormes y explicaciones repetidas. Primero responde la decision, luego 1 numero importante y 1 accion.",
           "Si falta informacion, pregunta una sola cosa util y especifica en questionToUser.",
           "Si existe decision en el contexto, debes respetarla y resumir su impacto. No contradigas decisiones blocked/warning/approved.",
           "No inventes datos financieros que no esten en el contexto.",

@@ -46,6 +46,25 @@ function FinanceMetric({ label, value, tone = "neutral" }) {
   );
 }
 
+const transactionMeta = {
+  income: { emoji: "💰", label: "ingreso", sign: "+" },
+  expense: { emoji: "🧾", label: "gasto", sign: "-" },
+  debt_payment: { emoji: "💳", label: "deuda", sign: "-" }
+};
+
+function isRealTransaction(transaction) {
+  return (
+    transaction &&
+    ["income", "expense", "debt_payment"].includes(transaction.type) &&
+    Number(transaction.amount || 0) > 0 &&
+    (transaction.description || transaction.category || transaction.name)
+  );
+}
+
+function transactionDate(transaction) {
+  return transaction.date || transaction.createdAt?.slice(0, 10) || "";
+}
+
 export default function FinancePanel({
   financialData,
   alerts,
@@ -77,7 +96,7 @@ export default function FinancePanel({
   };
   const safeSummary = { ...defaultSummary, ...summary };
   const totalDebt = data.debts.reduce((sum, debt) => sum + Number(debt.amount || 0), 0);
-  const recentTransactions = data.transactions.slice(0, 5);
+  const recentTransactions = data.transactions.filter(isRealTransaction).slice(0, 5);
   const latestAutoPlan = autoPlan || data.allocations[0] || null;
   const missionStats = financialData?.missionStats || {};
   const daily = dailySummary || {
@@ -266,15 +285,20 @@ export default function FinancePanel({
           <span>Últimas 5 transacciones</span>
         </div>
         {recentTransactions.length > 0 ? (
-          recentTransactions.map((transaction) => (
-            <div className={transaction.type} key={transaction.id}>
-              <span>{transaction.description}</span>
+          recentTransactions.map((transaction) => {
+            const meta = transactionMeta[transaction.type] || transactionMeta.expense;
+            return (
+            <div className={transaction.type} key={transaction.id || `${transaction.type}-${transaction.description}-${transaction.createdAt}`}>
+              <span>
+                {meta.emoji} {transaction.description || transaction.category || transaction.name}
+                <small>{transactionDate(transaction)} · {meta.label}</small>
+              </span>
               <strong>
-                {transaction.type === "income" ? "+" : "-"}
+                {meta.sign}
                 {currencyFormatter.format(transaction.amount)}
               </strong>
             </div>
-          ))
+          );})
         ) : (
           <p>No hay transacciones todavía.</p>
         )}

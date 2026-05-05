@@ -1347,12 +1347,12 @@ button {
   width: min(680px, 100%);
   overflow: hidden;
   border: 1px solid rgba(0, 255, 153, 0.34);
-  border-radius: 18px;
+  border-radius: 14px;
   background:
     linear-gradient(135deg, rgba(0, 255, 153, 0.12), rgba(96, 165, 250, 0.08)),
     rgba(10, 16, 24, 0.94);
   box-shadow: 0 22px 70px rgba(0, 0, 0, 0.32), 0 0 42px rgba(0, 255, 153, 0.08);
-  padding: 18px;
+  padding: 12px;
 }
 
 .wizard-topline,
@@ -1382,9 +1382,9 @@ button {
 }
 
 .wizard-progress {
-  height: 7px;
+  height: 5px;
   overflow: hidden;
-  margin: 12px 0 16px;
+  margin: 8px 0 10px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.08);
 }
@@ -1399,32 +1399,32 @@ button {
 
 .onboarding-wizard header {
   align-items: flex-start;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 
 .onboarding-wizard h2 {
   margin: 0;
   color: #fff;
-  font-size: 24px;
+  font-size: 20px;
   letter-spacing: 0;
 }
 
 .wizard-body {
   display: grid;
-  gap: 14px;
+  gap: 10px;
 }
 
 .wizard-body p {
   margin: 0;
   color: var(--muted);
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.5;
 }
 
 .wizard-chip-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 7px;
 }
 
 .wizard-chip-grid.compact {
@@ -1432,12 +1432,12 @@ button {
 }
 
 .wizard-chip {
-  min-height: 46px;
+  min-height: 36px;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 12px;
+  border-radius: 10px;
   background: rgba(255, 255, 255, 0.05);
   color: var(--text);
-  padding: 0 12px;
+  padding: 0 10px;
   text-align: left;
   font-weight: 800;
   transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
@@ -1458,7 +1458,7 @@ button {
 
 .wizard-field {
   display: grid;
-  gap: 6px;
+  gap: 4px;
 }
 
 .wizard-field span {
@@ -1469,7 +1469,7 @@ button {
 
 .wizard-field input,
 .wizard-field select {
-  min-height: 38px;
+  min-height: 32px;
   min-width: 0;
   border: 1px solid var(--line-strong);
   border-radius: 10px;
@@ -1499,16 +1499,16 @@ button {
 
 .wizard-mini-stack {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .wizard-mini-card {
   display: grid;
-  gap: 12px;
+  gap: 8px;
   border: 1px solid rgba(0, 255, 153, 0.24);
-  border-radius: 12px;
+  border-radius: 10px;
   background: rgba(0, 0, 0, 0.18);
-  padding: 12px;
+  padding: 9px;
 }
 
 .wizard-mini-card header {
@@ -1537,7 +1537,7 @@ button {
 .wizard-mini-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 7px;
 }
 
 .mini-remove-button,
@@ -1560,18 +1560,18 @@ button {
 
 .onboarding-wizard footer {
   justify-content: flex-end;
-  margin-top: 18px;
+  margin-top: 12px;
   flex-wrap: wrap;
 }
 
 .onboarding-wizard footer button,
 .wizard-correction-grid button {
-  min-height: 38px;
+  min-height: 32px;
   border: 0;
   border-radius: 10px;
   background: var(--green);
   color: #06130d;
-  padding: 0 14px;
+  padding: 0 11px;
   font-weight: 900;
 }
 
@@ -2401,6 +2401,14 @@ button {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.transaction-list span small {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .goal-card {
