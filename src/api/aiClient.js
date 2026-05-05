@@ -17,14 +17,16 @@ export function getAuthToken() {
 
 async function requestJson(path, options = {}) {
   let response;
+  const { headers: optionHeaders, ...fetchOptions } = options;
   try {
     response = await fetch(`${API_BASE_URL}${path}`, {
+      ...fetchOptions,
+      credentials: "include",
       headers: {
         "Content-Type": "application/json",
         ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
-        ...options.headers
-      },
-      ...options
+        ...optionHeaders
+      }
     });
   } catch {
     const networkError = new Error("No hay conexion con el backend de Johan AI.");

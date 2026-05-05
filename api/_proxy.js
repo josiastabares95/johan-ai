@@ -25,14 +25,37 @@ export default async function proxyRequest(req, res, routePath) {
       headers.Authorization = req.headers.authorization;
     }
 
+    if (req.headers.cookie) {
+      headers.Cookie = req.headers.cookie;
+    }
+
     const hasBody = !["GET", "HEAD"].includes(req.method);
+    const body = hasBody
+      ? typeof req.body === "string"
+        ? req.body
+        : JSON.stringify(req.body || {})
+      : undefined;
+
     const response = await fetch(buildTargetUrl(req, routePath), {
       method: req.method,
       headers,
-      body: hasBody ? JSON.stringify(req.body || {}) : undefined
+      body
     });
 
     const contentType = response.headers.get("content-type") || "";
+    const setCookieHeaders =
+      typeof response.headers.getSetCookie === "function"
+        ? response.headers.getSetCookie()
+        : [response.headers.get("set-cookie")].filter(Boolean);
+
+    if (setCookieHeaders.length > 0) {
+      res.setHeader("Set-Cookie", setCookieHeaders);
+    }
+
+    if (contentType) {
+      res.setHeader("Content-Type", contentType);
+    }
+
     res.status(response.status);
 
     if (contentType.includes("application/json")) {

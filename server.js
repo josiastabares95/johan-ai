@@ -801,6 +801,22 @@ const onboardingQuestions = {
   goals: "🎯 ¿Cuál es tu meta principal? Por defecto Casa Colombia. Dime monto objetivo y fecha ideal si la tienes."
 };
 
+function isAiOnboardingStartRequest(question) {
+  const rawText = String(question || "").toLowerCase();
+  if (rawText.includes("test") && rawText.includes("ia")) {
+    return true;
+  }
+  const text = normalizeMemoryText(question);
+  return [
+    "hacer test con ia",
+    "test con ia",
+    "test financiero con ia",
+    "quiero hacer el test financiero con ia paso a paso",
+    "hacer el test financiero con ia paso a paso",
+    "onboarding con ia"
+  ].some((phrase) => text.includes(phrase));
+}
+
 function startAiOnboarding() {
   financialState.onboarding = {
     ...financialState.onboarding,
@@ -813,8 +829,7 @@ function startAiOnboarding() {
   };
   saveFinancialState();
   return {
-    answer:
-      "🔥 Perfecto, vamos paso a paso. Primero necesito saber tus ingresos.\n¿Cuáles son tus fuentes de ingreso actualmente?\nEjemplo: trabajo, Instawork, Amazon Flex, efectivo, Zelle, otro.",
+    answer: onboardingQuestions.income,
     onboarding: financialState.onboarding
   };
 }
@@ -1907,7 +1922,7 @@ function applyFinancialEntry(type, payload = {}) {
     const debt = {
       id: existingDebt?.id || crypto.randomUUID(),
       name: String(payload.name).trim(),
-      type: payload.debtType || "Otro",
+      type: payload.type || payload.debtType || "Otro",
       amount: roundMoney(Number(payload.amount || 0)),
       minimumPayment: roundMoney(Number(payload.minimumPayment || 0)),
       frequency: payload.frequency,
@@ -3690,8 +3705,26 @@ app.post("/ask-ai", async (req, res) => {
     const { question = "" } = req.body || {};
     financialState.userInteractionCount = Number(financialState.userInteractionCount || 0) + 1;
     addConversationMemory("user", question);
-    generateDailyMission();
-    applyAutomaticFinancialMode();
+
+    if (
+      isAiOnboardingStartRequest(question) &&
+      !(financialState.onboarding?.mode === "ai_test" && financialState.onboarding.completed === false)
+    ) {
+      const result = startAiOnboarding();
+      addConversationMemory("assistant", result.answer);
+      return res.json({
+        answer: result.answer,
+        financialData: financialState,
+        onboarding: financialState.onboarding,
+        onboardingReview: false,
+        quickReplies: ["Trabajo", "Amazon Flex", "Instawork", "Efectivo"],
+        decision: "onboarding",
+        pendingAction: null,
+        pendingForm: null,
+        detectedIntent: "onboarding_start",
+        intentSource: "onboarding"
+      });
+    }
 
     if (financialState.onboarding?.mode === "ai_test" && financialState.onboarding.completed === false) {
       const onboardingResult = handleAiOnboardingAnswer(question);
@@ -3709,6 +3742,9 @@ app.post("/ask-ai", async (req, res) => {
         intentSource: "onboarding"
       });
     }
+
+    generateDailyMission();
+    applyAutomaticFinancialMode();
 
     const adminAction = detectAdministrativeAction(question);
     if (adminAction) {

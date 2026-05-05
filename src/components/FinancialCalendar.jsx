@@ -1,20 +1,16 @@
 import { useEffect, useState } from "react";
+import { getFinancialCalendar } from "../api/aiClient.js";
 
-const API_BASE = import.meta.env.VITE_API_URL || "https://johan-ai-backend.onrender.com";
-
-export default function FinancialCalendar({ token }) {
+export default function FinancialCalendar() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!token) return;
-    fetch(`${API_BASE}/financial-calendar`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then(r => r.json())
-      .then(d => { setData(d); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, [token]);
+    getFinancialCalendar()
+      .then(d => { setData(d); })
+      .catch(() => setData(null))
+      .finally(() => setLoading(false));
+  }, []);
 
   if (loading) return <div style={{ color: "var(--muted)", padding: 24, textAlign: "center" }}>Cargando calendario...</div>;
   if (!data) return <div style={{ color: "var(--danger)", padding: 24 }}>No se pudo cargar el calendario.</div>;

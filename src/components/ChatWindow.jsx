@@ -77,7 +77,7 @@ function SelectInput({ value, onChange, options, placeholder = "Selecciona" }) {
   );
 }
 
-function DebtForm({ id, values, setField, onSave, onSkip, preload }) {
+function DebtForm({ id, values, setField, onSave, onSkip, onDelete, preload }) {
   const current = values[id] || {};
   const [errors, setErrors] = useState({});
 
@@ -134,6 +134,11 @@ function DebtForm({ id, values, setField, onSave, onSkip, preload }) {
         <button type="button" onClick={() => validate() && onSave(current)}>
           Guardar deuda
         </button>
+        {preload && onDelete && (
+          <button className="danger-button" type="button" onClick={() => onDelete(preload)}>
+            Eliminar
+          </button>
+        )}
         {onSkip && (
           <button type="button" onClick={onSkip}>
             Completar después
@@ -293,6 +298,7 @@ export default function ChatWindow({
           {...shared}
           preload={preload}
           onSave={(payload) => (preload ? onEditDebt(preload.name || payload.name, payload) : onSubmitFinancialForm("debt", payload))}
+          onDelete={preload ? onDeleteDebt : null}
           onSkip={() => onSendMessage("Completar después")}
         />
       );
@@ -303,6 +309,7 @@ export default function ChatWindow({
           {...shared}
           preload={preload}
           onSave={(payload) => onEditDebt(preload?.name || payload.name, payload)}
+          onDelete={onDeleteDebt}
           onSkip={() => onSendMessage("Editar después")}
         />
       );

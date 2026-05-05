@@ -43,6 +43,134 @@ const createWelcomeChat = () => ({
 
 const initialChat = createWelcomeChat();
 
+const debtTypeOptions = [
+  "💳 Tarjeta de crédito",
+  "🧾 Préstamo personal",
+  "🚗 Carro",
+  "🏍️ Moto",
+  "📱 Celular",
+  "🌐 Internet",
+  "💡 Servicio",
+  "❓ Otro"
+];
+
+const debtFrequencyOptions = ["semanal", "quincenal", "mensual"];
+
+function DebtEditorModal({ debt, onClose, onSave, onDelete }) {
+  const [form, setForm] = useState(() => ({
+    name: debt?.name || "",
+    type: debt?.type || debt?.debtType || "",
+    amount: debt?.amount ?? "",
+    minimumPayment: debt?.minimumPayment ?? "",
+    frequency: debt?.frequency || "",
+    dueDate: debt?.dueDate || "",
+    apr: debt?.apr ?? "",
+    note: debt?.note || ""
+  }));
+  const [error, setError] = useState("");
+
+  const setField = (field, value) => {
+    setForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const missingFields = [
+    !form.name ? "nombre" : null,
+    !Number(form.amount || 0) ? "monto" : null,
+    !Number(form.minimumPayment || 0) ? "pago mínimo" : null,
+    !form.frequency ? "frecuencia" : null,
+    !form.dueDate ? "fecha" : null
+  ].filter(Boolean);
+
+  const periodsRemaining =
+    Number(form.amount || 0) > 0 && Number(form.minimumPayment || 0) > 0
+      ? Math.ceil(Number(form.amount || 0) / Number(form.minimumPayment || 1))
+      : null;
+
+  const handleSave = async () => {
+    if (missingFields.length > 0) {
+      setError(`Falta ${missingFields.join(" y ")}`);
+      return;
+    }
+    await onSave(debt.name, form);
+    onClose();
+  };
+
+  const handleDelete = async () => {
+    if (!window.confirm(`¿Eliminar ${debt.name}?`)) return;
+    await onDelete(debt);
+    onClose();
+  };
+
+  return (
+    <div className="modal-backdrop">
+      <section className="debt-editor-modal">
+        <header>
+          <div>
+            <p>Deuda seleccionada</p>
+            <h2>{debt.name || "Editar deuda"}</h2>
+          </div>
+          <button type="button" onClick={onClose}>Cerrar</button>
+        </header>
+
+        <div className="debt-editor-actions" aria-label="Acciones de deuda">
+          <span>Editar</span>
+          <button className="danger-button" type="button" onClick={handleDelete}>Eliminar</button>
+          <span>{periodsRemaining ? `⏳ Final estimado: ${periodsRemaining} pagos` : "⏳ Agrega pago mínimo para estimar"}</span>
+        </div>
+
+        <div className="smart-form compact">
+          <strong>Editar deuda</strong>
+          <div className="form-grid">
+            <label className="form-field">
+              <span>Nombre</span>
+              <input value={form.name} onChange={(event) => setField("name", event.target.value)} />
+            </label>
+            <label className="form-field">
+              <span>Tipo</span>
+              <select value={form.type} onChange={(event) => setField("type", event.target.value)}>
+                <option value="">Selecciona</option>
+                {debtTypeOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+              </select>
+            </label>
+            <label className="form-field">
+              <span>Monto total</span>
+              <input type="number" value={form.amount} onChange={(event) => setField("amount", event.target.value)} />
+            </label>
+            <label className="form-field">
+              <span>Pago mínimo</span>
+              <input type="number" value={form.minimumPayment} onChange={(event) => setField("minimumPayment", event.target.value)} />
+            </label>
+            <label className="form-field">
+              <span>Frecuencia</span>
+              <select value={form.frequency} onChange={(event) => setField("frequency", event.target.value)}>
+                <option value="">Selecciona</option>
+                {debtFrequencyOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+              </select>
+            </label>
+            <label className="form-field">
+              <span>Fecha de pago</span>
+              <input type="date" value={form.dueDate} onChange={(event) => setField("dueDate", event.target.value)} />
+            </label>
+            <label className="form-field">
+              <span>APR/interés opcional</span>
+              <input type="number" value={form.apr} onChange={(event) => setField("apr", event.target.value)} />
+            </label>
+            <label className="form-field">
+              <span>Nota</span>
+              <input value={form.note} onChange={(event) => setField("note", event.target.value)} />
+            </label>
+          </div>
+          {error && <p className="field-error">{error}</p>}
+          <div className="form-actions">
+            <button type="button" onClick={handleSave}>Guardar cambios</button>
+            <button type="button" onClick={onClose}>Cancelar</button>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 const buildSummaryFromState = (state = {}) => {
   const transactions = Array.isArray(state.transactions) ? state.transactions : [];
   const incomeTransactions = transactions.filter((transaction) => transaction.type === "income");
@@ -137,6 +265,7 @@ export default function App() {
   const [isSimulating, setIsSimulating] = useState(false);
   const [calendar, setCalendar] = useState(null);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [selectedDebt, setSelectedDebt] = useState(null);
   const [error, setError] = useState("");
   const [connectionStatus, setConnectionStatus] = useState("checking");
   const [authView, setAuthView] = useState("login");
@@ -499,6 +628,7 @@ export default function App() {
           null,
           null,
           null,
+          null,
           result.onboardingReview || false,
           result.quickReplies || []
         );
@@ -691,10 +821,18 @@ export default function App() {
         dailyMission={dailyMission}
         simulation={simulation}
         onDeleteDebt={handleDeleteDebt}
-        onEditDebt={(debt) => handleOpenManualForm("debt", debt)}
+        onEditDebt={(debt) => setSelectedDebt(debt)}
         onOpenCalendar={() => setActiveTab("calendar")}
         onSimulate={handleSimulate}
       />
+      {selectedDebt && (
+        <DebtEditorModal
+          debt={selectedDebt}
+          onClose={() => setSelectedDebt(null)}
+          onSave={handleEditDebt}
+          onDelete={handleDeleteDebt}
+        />
+      )}
       {isCalendarOpen && (
         <div className="modal-backdrop">
           <section className="calendar-modal">
