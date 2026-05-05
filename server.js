@@ -883,8 +883,24 @@ function handleAiOnboardingAnswer(question) {
     answer,
     onboarding: financialState.onboarding,
     onboardingReview: nextStep === "review",
-    quickReplies: nextStep === "review" ? ["Guardar perfil", "Corregir algo", "Completar después"] : ["Sí", "No", "No sé", "Después"]
+    quickReplies: getOnboardingQuickReplies(nextStep)
   };
+}
+
+function getOnboardingQuickReplies(step) {
+  const replies = {
+    income: ["Trabajo", "Instawork", "Amazon Flex", "Efectivo", "Zelle", "Otro"],
+    credit_cards: ["Sí", "No", "No sé"],
+    debts: ["Agregar deuda", "No tengo", "Después"],
+    vehicle: ["Carro", "Moto", "No tengo", "Después"],
+    housing: ["Renta", "Hipoteca", "No pago"],
+    utilities: ["Celular", "Internet", "Luz", "Agua", "Suscripciones"],
+    food: ["Mercado", "Comida fuera", "Ambos"],
+    transport: ["Gasolina", "Transporte público", "No aplica"],
+    goals: ["Casa Colombia", "Carro", "Emergencia", "Viaje", "Otro"],
+    review: ["Guardar perfil", "Corregir algo", "Completar después"]
+  };
+  return replies[step] || [];
 }
 
 function saveOnboardingProfile() {

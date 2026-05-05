@@ -50,6 +50,96 @@ const INCOME_SOURCES = [
   "🎁 Otro"
 ];
 
+const ONBOARDING_STEPS = [
+  {
+    key: "income",
+    title: "Ingresos",
+    match: ["fuentes de ingreso", "primero necesito saber tus ingresos"],
+    question: "Cuéntame de dónde entra dinero y cuánto ganas por semana o por mes.",
+    example: "Ejemplo: Trabajo $900/semana + Amazon Flex $200/semana.",
+    replies: ["Trabajo", "Instawork", "Amazon Flex", "Efectivo", "Zelle", "Otro"]
+  },
+  {
+    key: "credit_cards",
+    title: "Tarjetas",
+    match: ["tarjetas de crédito", "tarjetas de credito"],
+    question: "Dime si tienes tarjetas y, si puedes, nombre, deuda, límite, mínimo, interés y fecha.",
+    example: "Ejemplo: Credit One, debo $300, límite $500, mínimo $35, vence el 12.",
+    replies: ["Sí", "No", "No sé"]
+  },
+  {
+    key: "debts",
+    title: "Otras deudas",
+    match: ["otras deudas", "además de tarjetas", "ademas de tarjetas"],
+    question: "Agrega préstamos, personas, compras financiadas o cualquier deuda fuera de tarjetas.",
+    example: "Ejemplo: Oportun $1,200, pago $100 mensual, vence el 20.",
+    replies: ["Agregar deuda", "No tengo", "Después"]
+  },
+  {
+    key: "vehicle",
+    title: "Vehículo",
+    match: ["carro o moto"],
+    question: "Cuéntame si tienes carro o moto, si lo debes y cuánto pagas.",
+    example: "Ejemplo: Carro, debo $9,000, pago $430 al mes, vence el 5.",
+    replies: ["Carro", "Moto", "No tengo", "Después"]
+  },
+  {
+    key: "housing",
+    title: "Vivienda",
+    match: ["renta o vivienda"],
+    question: "Dime cuánto pagas de vivienda y qué día se paga.",
+    example: "Ejemplo: Renta $1,500, se paga el día 1.",
+    replies: ["Renta", "Hipoteca", "No pago"]
+  },
+  {
+    key: "utilities",
+    title: "Servicios",
+    match: ["servicios, celular", "suscripciones o seguros"],
+    question: "Lista servicios fijos, celular, internet, seguros o suscripciones.",
+    example: "Ejemplo: Celular $80, internet $60, luz $120.",
+    replies: ["Celular", "Internet", "Luz", "Agua", "Suscripciones"]
+  },
+  {
+    key: "food",
+    title: "Comida",
+    match: ["mercado y comida"],
+    question: "Dime cuánto gastas normalmente en mercado y comida por semana.",
+    example: "Ejemplo: Mercado $120/semana y comida fuera $60/semana.",
+    replies: ["Mercado", "Comida fuera", "Ambos"]
+  },
+  {
+    key: "transport",
+    title: "Transporte",
+    match: ["gasolina o transporte"],
+    question: "Dime cuánto gastas semanalmente en moverte.",
+    example: "Ejemplo: Gasolina $70/semana o bus/tren $35/semana.",
+    replies: ["Gasolina", "Transporte público", "No aplica"]
+  },
+  {
+    key: "goals",
+    title: "Meta principal",
+    match: ["meta principal", "casa colombia"],
+    question: "Elige o describe tu meta principal, monto objetivo y fecha ideal.",
+    example: "Ejemplo: Casa Colombia, quiero juntar $30,000 antes de diciembre 2027.",
+    replies: ["Casa Colombia", "Carro", "Emergencia", "Viaje", "Otro"]
+  }
+];
+
+function getOnboardingStep(content = "") {
+  const text = String(content).toLowerCase();
+  if (text.includes("resumen que tengo") || text.includes("guardar este perfil")) {
+    return { key: "review", title: "Revisión", stepNumber: 9 };
+  }
+  const stepIndex = ONBOARDING_STEPS.findIndex((step) =>
+    step.match.some((phrase) => text.includes(phrase))
+  );
+  if (stepIndex === -1) return null;
+  return {
+    ...ONBOARDING_STEPS[stepIndex],
+    stepNumber: stepIndex + 1
+  };
+}
+
 function Field({ label, children, error }) {
   return (
     <label className="form-field">
@@ -345,6 +435,43 @@ export default function ChatWindow({
     );
   };
 
+  const renderOnboardingStep = (item) => {
+    const step = getOnboardingStep(item.content);
+    if (!step) return null;
+
+    if (step.key === "review") {
+      return (
+        <div className="ai-onboarding-step review">
+          <span className="step-kicker">Paso 9 de 9 — Revisión</span>
+          <strong>Tu perfil está listo para guardar</strong>
+          <p>Revisa el resumen. Si algo está mal, puedes corregirlo antes de activar la asesoría financiera.</p>
+          <pre>{item.content}</pre>
+          <div className="onboarding-action-row">
+            <button type="button" onClick={() => onOnboardingAction("save_profile")}>Guardar perfil</button>
+            <button type="button" onClick={() => onOnboardingAction("ai")}>Corregir algo</button>
+            <button type="button" onClick={() => onOnboardingAction("complete_later")}>Completar después</button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="ai-onboarding-step">
+        <span className="step-kicker">Paso {step.stepNumber} de 9 — {step.title}</span>
+        <strong>{step.question}</strong>
+        <p>{step.example}</p>
+        <small>Escribe los detalles abajo o toca una opción rápida para empezar tu respuesta.</small>
+        <div className="onboarding-action-row">
+          {step.replies.map((reply) => (
+            <button key={reply} type="button" onClick={() => onSendMessage(reply)}>
+              {reply}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <main className="chat-shell">
       <header className="chat-header">
@@ -386,7 +513,9 @@ export default function ChatWindow({
           <article className={`message-row ${item.role}`} key={item.id}>
             <div className="avatar">{item.role === "user" ? "Tú" : "AI"}</div>
             <div className="message-bubble">
-              <p>{item.content}</p>
+              {item.decision === "onboarding" || item.onboardingReview
+                ? renderOnboardingStep(item) || <p>{item.content}</p>
+                : <p>{item.content}</p>}
               {item.autoPlan && (
                 <div className="auto-plan-message">
                   <span>Asignación automática</span>
@@ -467,7 +596,7 @@ export default function ChatWindow({
               )}
               {item.pendingForm === "delete_debt" && renderDeleteConfirm(item.preloadedDebt || item.formData)}
               {item.pendingForm && item.pendingForm !== "delete_debt" && renderForm(item.pendingForm, item)}
-              {item.onboardingReview && (
+              {item.onboardingReview && !getOnboardingStep(item.content) && (
                 <div className="form-actions">
                   <button type="button" onClick={() => onOnboardingAction("save_profile")}>
                     Guardar perfil
@@ -480,7 +609,7 @@ export default function ChatWindow({
                   </button>
                 </div>
               )}
-              {item.quickReplies?.length > 0 && !item.onboardingReview && (
+              {item.quickReplies?.length > 0 && !item.onboardingReview && item.decision !== "onboarding" && (
                 <div className="quick-replies">
                   {item.quickReplies.slice(0, 4).map((reply) => (
                     <button key={reply} type="button" onClick={() => onSendMessage(reply)}>

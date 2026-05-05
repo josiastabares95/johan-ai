@@ -1247,6 +1247,96 @@ button {
   color: #06130d;
 }
 
+.ai-onboarding-step {
+  position: relative;
+  display: grid;
+  gap: 10px;
+  max-width: 680px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 255, 153, 0.34);
+  border-radius: 14px;
+  background:
+    linear-gradient(135deg, rgba(0, 255, 153, 0.12), rgba(96, 165, 250, 0.08)),
+    rgba(7, 10, 14, 0.94);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.03), 0 18px 42px rgba(0, 255, 153, 0.08);
+  padding: 14px;
+}
+
+.ai-onboarding-step::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(0, 255, 153, 0.15), transparent 38%, rgba(96, 165, 250, 0.12));
+  opacity: 0.7;
+}
+
+.ai-onboarding-step > * {
+  position: relative;
+}
+
+.step-kicker {
+  width: fit-content;
+  border: 1px solid rgba(0, 255, 153, 0.34);
+  border-radius: 999px;
+  background: rgba(0, 255, 153, 0.08);
+  color: var(--green);
+  padding: 5px 9px;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.ai-onboarding-step strong {
+  color: #fff;
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.ai-onboarding-step p,
+.ai-onboarding-step small {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.ai-onboarding-step pre {
+  max-height: 260px;
+  overflow: auto;
+  margin: 0;
+  white-space: pre-wrap;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.22);
+  color: var(--text);
+  padding: 10px;
+  font-family: inherit;
+  font-size: 12px;
+}
+
+.onboarding-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.onboarding-action-row button {
+  min-height: 32px;
+  border: 1px solid rgba(0, 255, 153, 0.28);
+  border-radius: 999px;
+  background: rgba(0, 255, 153, 0.08);
+  color: var(--text);
+  padding: 0 11px;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.onboarding-action-row button:hover {
+  border-color: rgba(0, 255, 153, 0.6);
+  background: rgba(0, 255, 153, 0.15);
+}
+
 .main-goal-mini {
   display: grid;
   gap: 5px;
@@ -1279,6 +1369,143 @@ button {
   color: var(--text);
   padding: 10px;
   text-align: left;
+}
+
+.calendar-page {
+  min-width: 0;
+  overflow: auto;
+  padding: 24px 28px;
+}
+
+.financial-calendar-view {
+  display: grid;
+  gap: 16px;
+  max-width: 820px;
+}
+
+.financial-calendar-view header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border: 1px solid rgba(0, 255, 153, 0.24);
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(0, 255, 153, 0.1), rgba(96, 165, 250, 0.08));
+  padding: 14px;
+}
+
+.financial-calendar-view header span {
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.financial-calendar-view h2,
+.financial-calendar-view h3,
+.financial-calendar-view p {
+  margin: 0;
+}
+
+.financial-calendar-view h2 {
+  margin-top: 4px;
+  color: #fff;
+  font-size: 20px;
+}
+
+.financial-calendar-view header button {
+  min-height: 34px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--panel-soft);
+  color: var(--text);
+  padding: 0 12px;
+  font-weight: 850;
+}
+
+.calendar-empty-state,
+.calendar-section,
+.calendar-goal-card {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.035);
+  padding: 14px;
+}
+
+.calendar-empty-state strong {
+  color: #fff;
+}
+
+.calendar-empty-state p,
+.calendar-section > p,
+.calendar-event p,
+.calendar-goal-card p,
+.calendar-goal-card span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.calendar-section h3 {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.calendar-event {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel-soft);
+  padding: 10px 12px;
+}
+
+.calendar-event.overdue {
+  border-color: rgba(255, 107, 107, 0.55);
+  background: rgba(255, 107, 107, 0.08);
+}
+
+.calendar-event strong,
+.calendar-goal-card strong {
+  color: #fff;
+  font-size: 13px;
+}
+
+.calendar-goal-card > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.calendar-goal-bar {
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--line);
+}
+
+.calendar-goal-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--green);
+}
+
+.calendar-alert {
+  border: 1px solid rgba(255, 204, 102, 0.45);
+  border-radius: 10px;
+  background: rgba(255, 204, 102, 0.08);
+  color: var(--text);
+  padding: 9px 10px;
+  font-size: 13px;
+}
+
+.calendar-alert.danger {
+  border-color: rgba(255, 107, 107, 0.55);
+  background: rgba(255, 107, 107, 0.09);
 }
 
 .modal-backdrop {

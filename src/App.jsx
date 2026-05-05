@@ -617,7 +617,7 @@ export default function App() {
           activeChatId,
           result.answer,
           null,
-          null,
+          result.decision || (mappedAction === "ai_test" ? "onboarding" : null),
           null,
           null,
           null,
@@ -789,9 +789,8 @@ export default function App() {
         onLogout={handleLogout}
       />
       {activeTab === "calendar" ? (
-        <div style={{ overflow: "auto", padding: "24px 28px" }}>
-          <h2 style={{ margin: "0 0 20px", fontSize: 18 }}>📅 Calendario Financiero</h2>
-          <FinancialCalendar token={authTokenState} />
+        <div className="calendar-page">
+          <FinancialCalendar onBack={() => setActiveTab("chat")} />
         </div>
       ) : (
         <ChatWindow

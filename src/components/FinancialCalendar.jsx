@@ -1,139 +1,157 @@
 import { useEffect, useState } from "react";
 import { getFinancialCalendar } from "../api/aiClient.js";
 
-export default function FinancialCalendar() {
+export default function FinancialCalendar({ onBack }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     getFinancialCalendar()
-      .then(d => { setData(d); })
+      .then((calendarData) => setData(calendarData))
       .catch(() => setData(null))
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div style={{ color: "var(--muted)", padding: 24, textAlign: "center" }}>Cargando calendario...</div>;
-  if (!data) return <div style={{ color: "var(--danger)", padding: 24 }}>No se pudo cargar el calendario.</div>;
+  const safeData = data || {};
+  const upcomingPayments = Array.isArray(safeData.upcomingPayments) ? safeData.upcomingPayments : [];
+  const debtPayoffDates = Array.isArray(safeData.debtPayoffDates) ? safeData.debtPayoffDates : [];
+  const alerts = Array.isArray(safeData.alerts) ? safeData.alerts : [];
+  const events = Array.isArray(safeData.events) ? safeData.events : [];
+  const today = safeData.today || new Date().toISOString().slice(0, 10);
 
-  const today = data.today;
-
-  const formatDate = (d) => {
-    if (!d) return "Sin fecha";
+  const formatDate = (date) => {
+    if (!date) return "Sin fecha";
     try {
-      return new Date(d + "T12:00:00").toLocaleDateString("es-CO", { month: "short", day: "numeric" });
-    } catch { return d; }
+      return new Date(`${date}T12:00:00`).toLocaleDateString("es-CO", {
+        month: "short",
+        day: "numeric"
+      });
+    } catch {
+      return date;
+    }
   };
 
-  const isOverdue = (d) => d && d < today;
-  const daysUntil = (d) => {
-    if (!d) return null;
-    const diff = Math.ceil((new Date(d + "T12:00:00") - new Date()) / 86400000);
-    return diff;
+  const isOverdue = (date) => date && date < today;
+  const daysUntil = (date) => {
+    if (!date) return null;
+    return Math.ceil((new Date(`${date}T12:00:00`) - new Date()) / 86400000);
   };
+
+  if (loading) {
+    return (
+      <section className="financial-calendar-view">
+        <header>
+          <div>
+            <span>📅 Calendario financiero</span>
+            <h2>Cargando calendario...</h2>
+          </div>
+          <button type="button" onClick={onBack}>Volver al chat</button>
+        </header>
+      </section>
+    );
+  }
 
   return (
-    <div style={{ display: "grid", gap: 20, padding: "4px 0" }}>
-      <div>
-        <h3 style={{ fontSize: 13, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.07em", margin: "0 0 12px" }}>
-          📅 Próximos pagos
-        </h3>
-        {data.upcomingPayments.length === 0
-          ? <p style={{ color: "var(--muted)", fontSize: 13 }}>Sin pagos con fecha registrada.</p>
-          : data.upcomingPayments.map((p, i) => {
-            const days = daysUntil(p.dueDate);
-            const overdue = isOverdue(p.dueDate);
+    <section className="financial-calendar-view">
+      <header>
+        <div>
+          <span>📅 Calendario financiero</span>
+          <h2>Mes actual</h2>
+        </div>
+        <button type="button" onClick={onBack}>Volver al chat</button>
+      </header>
+
+      {events.length === 0 && upcomingPayments.length === 0 && debtPayoffDates.length === 0 && alerts.length === 0 && (
+        <div className="calendar-empty-state">
+          <strong>📅 Todavía no hay eventos financieros.</strong>
+          <p>Agrega deudas, ingresos o pagos para llenar tu calendario.</p>
+        </div>
+      )}
+
+      <div className="calendar-section">
+        <h3>💳 Próximos pagos</h3>
+        {upcomingPayments.length === 0 ? (
+          <p>Sin pagos con fecha registrada.</p>
+        ) : (
+          upcomingPayments.map((payment, index) => {
+            const days = daysUntil(payment.dueDate);
+            const overdue = isOverdue(payment.dueDate);
             return (
-              <div key={i} style={{
-                display: "flex", justifyContent: "space-between", alignItems: "center",
-                background: overdue ? "rgba(255,107,107,0.08)" : "var(--panel-soft)",
-                border: `1px solid ${overdue ? "var(--danger)" : "var(--line)"}`,
-                borderRadius: 12, padding: "10px 14px", marginBottom: 8
-              }}>
+              <div className={overdue ? "calendar-event overdue" : "calendar-event"} key={`${payment.name}-${payment.dueDate || index}`}>
                 <div>
-                  <div style={{ fontWeight: 700, fontSize: 13 }}>{p.name}</div>
-                  <div style={{ color: "var(--muted)", fontSize: 12 }}>
+                  <strong>{payment.name}</strong>
+                  <p>
                     {overdue ? "⚠️ Atrasado" : days === 0 ? "🔴 Hoy" : days === 1 ? "🟡 Mañana" : `🟢 En ${days} días`}
-                    {" · "}{formatDate(p.dueDate)}
-                  </div>
+                    {" · "}
+                    {formatDate(payment.dueDate)}
+                  </p>
                 </div>
-                <div style={{ fontWeight: 700, color: overdue ? "var(--danger)" : "var(--green)", fontSize: 14 }}>
-                  ${p.amount}
-                </div>
+                <strong>${payment.amount || 0}</strong>
               </div>
             );
           })
-        }
+        )}
       </div>
 
-      {data.debtPayoffDates.length > 0 && (
-        <div>
-          <h3 style={{ fontSize: 13, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.07em", margin: "0 0 12px" }}>
-            🏁 Estimación de liquidación
-          </h3>
-          {data.debtPayoffDates.map((d, i) => (
-            <div key={i} style={{
-              background: "var(--panel-soft)", border: "1px solid var(--line)",
-              borderRadius: 12, padding: "10px 14px", marginBottom: 8
-            }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div style={{ fontWeight: 700, fontSize: 13 }}>💳 {d.debt}</div>
-                <div style={{ color: "var(--green)", fontSize: 12, fontWeight: 700 }}>
-                  {d.payoffDate ? formatDate(d.payoffDate) : "Sin fecha"}
-                </div>
+      {debtPayoffDates.length > 0 && (
+        <div className="calendar-section">
+          <h3>⏳ Final estimado de deuda</h3>
+          {debtPayoffDates.map((debt, index) => (
+            <div className="calendar-event" key={`${debt.debt}-${index}`}>
+              <div>
+                <strong>💳 {debt.debt}</strong>
+                <p>
+                  {debt.periodsRemaining
+                    ? `${debt.periodsRemaining} ${debt.periodLabel} · Total: $${debt.totalEstimatedPaid}`
+                    : "Faltan datos para calcular"}
+                </p>
               </div>
-              <div style={{ color: "var(--muted)", fontSize: 12, marginTop: 4 }}>
-                {d.periodsRemaining ? `${d.periodsRemaining} ${d.periodLabel} · Total: $${d.totalEstimatedPaid}` : "Faltan datos para calcular"}
-              </div>
+              <strong>{debt.payoffDate ? formatDate(debt.payoffDate) : "Sin fecha"}</strong>
             </div>
           ))}
         </div>
       )}
 
-      {data.goalProgress && (
-        <div>
-          <h3 style={{ fontSize: 13, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.07em", margin: "0 0 12px" }}>
-            🏠 Meta: {data.goalProgress.name}
-          </h3>
-          <div style={{ background: "var(--panel-soft)", border: "1px solid var(--line)", borderRadius: 12, padding: "12px 14px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-              <span style={{ color: "var(--muted)", fontSize: 13 }}>Guardado</span>
-              <span style={{ fontWeight: 700, color: "var(--green)", fontSize: 14 }}>${data.goalProgress.saved}</span>
+      {safeData.goalProgress && (
+        <div className="calendar-section">
+          <h3>🎯 Meta: {safeData.goalProgress.name}</h3>
+          <div className="calendar-goal-card">
+            <div>
+              <span>Guardado</span>
+              <strong>${safeData.goalProgress.saved || 0}</strong>
             </div>
-            {data.goalProgress.target > 0 && (
+            {Number(safeData.goalProgress.target || 0) > 0 && (
               <>
-                <div style={{ background: "var(--line)", borderRadius: 6, height: 6, overflow: "hidden", marginBottom: 8 }}>
-                  <div style={{
-                    height: "100%", background: "var(--green)",
-                    width: `${Math.min(100, (data.goalProgress.saved / data.goalProgress.target) * 100)}%`,
-                    borderRadius: 6, transition: "width 0.4s"
-                  }} />
+                <div className="calendar-goal-bar">
+                  <span
+                    style={{
+                      width: `${Math.min(
+                        100,
+                        (Number(safeData.goalProgress.saved || 0) / Number(safeData.goalProgress.target || 1)) * 100
+                      )}%`
+                    }}
+                  />
                 </div>
-                <div style={{ color: "var(--muted)", fontSize: 12 }}>
-                  Meta: ${data.goalProgress.target}
-                  {data.goalProgress.dailyNeeded && ` · Necesitas $${data.goalProgress.dailyNeeded}/día`}
-                </div>
+                <p>
+                  Meta: ${safeData.goalProgress.target}
+                  {safeData.goalProgress.dailyNeeded ? ` · Necesitas $${safeData.goalProgress.dailyNeeded}/día` : ""}
+                </p>
               </>
             )}
           </div>
         </div>
       )}
 
-      {data.alerts.length > 0 && (
-        <div>
-          <h3 style={{ fontSize: 13, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.07em", margin: "0 0 10px" }}>
-            🔔 Alertas
-          </h3>
-          {data.alerts.slice(0, 4).map((a, i) => (
-            <div key={i} style={{
-              background: a.type === "danger" ? "rgba(255,107,107,0.08)" : "rgba(255,204,102,0.08)",
-              border: `1px solid ${a.type === "danger" ? "var(--danger)" : "var(--warning)"}`,
-              borderRadius: 10, padding: "8px 12px", marginBottom: 6, fontSize: 13
-            }}>
-              {a.type === "danger" ? "🔴" : "🟡"} {a.message}
+      {alerts.length > 0 && (
+        <div className="calendar-section">
+          <h3>⚠️ Alertas</h3>
+          {alerts.slice(0, 4).map((alert, index) => (
+            <div className={`calendar-alert ${alert.type || "warning"}`} key={`${alert.message}-${index}`}>
+              {alert.type === "danger" ? "🔴" : "🟡"} {alert.message}
             </div>
           ))}
         </div>
       )}
-    </div>
+    </section>
   );
 }
