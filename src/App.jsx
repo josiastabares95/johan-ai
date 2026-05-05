@@ -644,6 +644,31 @@ export default function App() {
     }
   };
 
+  const handleOnboardingWizardSubmit = async (payload) => {
+    if (isLoading) return;
+    setIsLoading(true);
+    setError("");
+    try {
+      const response = await askJohanAI(`__ONBOARDING_WIZARD__${JSON.stringify(payload)}`, financialData);
+      setConnectionStatus("online");
+      if (response.financialData) {
+        setFinancialData(response.financialData);
+        setAlerts(response.financialData.alerts || []);
+        setMemories(response.financialData.universalMemory || []);
+        setLearningProfile(response.financialData.learningProfile || mockFinancialData.learningProfile);
+        setDailyMission(response.financialData.dailyMission || null);
+        setMistakes(response.financialData.mistakes || []);
+        setDailySummary(buildDailySummaryFromState(response.financialData));
+        setSummary(buildSummaryFromState(response.financialData));
+      }
+    } catch (wizardError) {
+      setConnectionStatus("offline");
+      setError(wizardError.message || "No se pudo avanzar el test financiero.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleEditDebt = async (debtName, data) => {
     try {
       const result = await editDebt(debtName, data);
@@ -805,6 +830,7 @@ export default function App() {
           onDeleteDebt={handleDeleteDebt}
           onOpenManualForm={handleOpenManualForm}
           onOnboardingAction={handleOnboardingAction}
+          onOnboardingWizardSubmit={handleOnboardingWizardSubmit}
           onSendMessage={handleSendMessage}
           onSubmitFinancialForm={handleSubmitFinancialForm}
         />

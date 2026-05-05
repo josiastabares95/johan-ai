@@ -1,13 +1,12 @@
 import { useEffect, useRef, useState } from "react";
+import OnboardingWizard from "./OnboardingWizard.jsx";
 
 const DEBT_TYPES = [
   "💳 Tarjeta de crédito",
   "🧾 Préstamo personal",
-  "🚗 Carro",
-  "🏍️ Moto",
-  "📱 Celular",
-  "🌐 Internet",
-  "💡 Servicio",
+  "🚗 Carro / Moto",
+  "💡 Servicios atrasados",
+  "🛒 Compra financiada",
   "❓ Otro"
 ];
 const FREQUENCIES = ["semanal", "quincenal", "mensual"];
@@ -41,13 +40,13 @@ const PAYMENT_METHODS = [
   "❓ Otro"
 ];
 const INCOME_SOURCES = [
-  "💼 Trabajo",
-  "📦 Amazon Flex",
-  "🧰 Instawork",
-  "📲 Zelle",
+  "💼 Ingreso fijo",
+  "🔄 Ingreso variable",
   "💵 Efectivo",
-  "🏦 Transferencia",
-  "🎁 Otro"
+  "🏦 Transferencias",
+  "📲 Apps/Zelle",
+  "🎁 Ayuda familiar",
+  "➕ Otro"
 ];
 
 const ONBOARDING_STEPS = [
@@ -56,15 +55,15 @@ const ONBOARDING_STEPS = [
     title: "Ingresos",
     match: ["fuentes de ingreso", "primero necesito saber tus ingresos"],
     question: "Cuéntame de dónde entra dinero y cuánto ganas por semana o por mes.",
-    example: "Ejemplo: Trabajo $900/semana + Amazon Flex $200/semana.",
-    replies: ["Trabajo", "Instawork", "Amazon Flex", "Efectivo", "Zelle", "Otro"]
+    example: "Ejemplo: Ingreso fijo $900/semana + efectivo $120 variable.",
+    replies: ["Ingreso fijo", "Ingreso variable", "Efectivo", "Transferencias", "Otro"]
   },
   {
     key: "credit_cards",
     title: "Tarjetas",
     match: ["tarjetas de crédito", "tarjetas de credito"],
     question: "Dime si tienes tarjetas y, si puedes, nombre, deuda, límite, mínimo, interés y fecha.",
-    example: "Ejemplo: Credit One, debo $300, límite $500, mínimo $35, vence el 12.",
+    example: "Ejemplo: tarjeta principal, debo $300, límite $500, mínimo $35, vence el 12.",
     replies: ["Sí", "No", "No sé"]
   },
   {
@@ -72,7 +71,7 @@ const ONBOARDING_STEPS = [
     title: "Otras deudas",
     match: ["otras deudas", "además de tarjetas", "ademas de tarjetas"],
     question: "Agrega préstamos, personas, compras financiadas o cualquier deuda fuera de tarjetas.",
-    example: "Ejemplo: Oportun $1,200, pago $100 mensual, vence el 20.",
+    example: "Ejemplo: prestamo personal $1,200, pago $100 mensual, vence el 20.",
     replies: ["Agregar deuda", "No tengo", "Después"]
   },
   {
@@ -196,7 +195,7 @@ function DebtForm({ id, values, setField, onSave, onSkip, onDelete, preload }) {
       <strong>{preload ? "Editar deuda" : "Nueva deuda"}</strong>
       <div className="form-grid">
         <Field label="Nombre" error={errors.name}>
-          <TextInput value={current.name} onChange={(value) => setField(id, "name", value)} placeholder="Ej: Credit One" />
+          <TextInput value={current.name} onChange={(value) => setField(id, "name", value)} placeholder="Nombre creado por ti" />
         </Field>
         <Field label="Tipo">
           <SelectInput value={current.type || current.debtType} onChange={(value) => setField(id, "type", value)} options={DEBT_TYPES} />
@@ -348,6 +347,7 @@ export default function ChatWindow({
   onDeleteDebt,
   onOpenManualForm,
   onOnboardingAction,
+  onOnboardingWizardSubmit,
   error
 }) {
   const [message, setMessage] = useState("");
@@ -366,6 +366,7 @@ export default function ChatWindow({
 
   const hasValidPending = (pendingAction) =>
     Boolean(pendingAction?.id && ["income", "expense"].includes(pendingAction.intent) && Number(pendingAction.amount) > 0);
+  const isAiWizardActive = onboarding?.mode === "ai_test" && onboarding.completed === false;
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -493,7 +494,7 @@ export default function ChatWindow({
               <p>Antes de arrancar fuerte, armemos tu base financiera. Elige cómo quieres empezar:</p>
               <div>
                 <button type="button" onClick={() => onOnboardingAction("ai")}>
-                  Hacer test con IA
+                  Reconstruir mi estado financiero
                 </button>
                 <button type="button" onClick={() => onOnboardingAction("manual")}>
                   Agregar datos manualmente
@@ -509,7 +510,17 @@ export default function ChatWindow({
           </article>
         )}
 
-        {chat.messages.map((item) => (
+        {isAiWizardActive && (
+          <OnboardingWizard
+            onboarding={onboarding}
+            isLoading={isLoading}
+            onSubmit={onOnboardingWizardSubmit}
+            onSave={() => onOnboardingAction("save_profile")}
+            onCompleteLater={() => onOnboardingAction("complete_later")}
+          />
+        )}
+
+        {chat.messages.filter((item) => !(isAiWizardActive && item.decision === "onboarding")).map((item) => (
           <article className={`message-row ${item.role}`} key={item.id}>
             <div className="avatar">{item.role === "user" ? "Tú" : "AI"}</div>
             <div className="message-bubble">

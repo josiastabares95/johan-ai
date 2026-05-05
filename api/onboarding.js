@@ -1,7 +1,7 @@
 import proxyRequest from "./_proxy.js";
 
 const AI_ONBOARDING_START_ANSWER =
-  "🔥 Perfecto, vamos paso a paso. Primero necesito saber tus ingresos.\n¿Cuáles son tus fuentes de ingreso actualmente?\nEjemplo: trabajo, Instawork, Amazon Flex, efectivo, Zelle, otro.";
+  "🔥 Vamos a reconstruir tu estado financiero paso a paso. Primero elige tu objetivo principal.";
 
 function getBody(req) {
   if (typeof req.body === "string") {
@@ -22,7 +22,7 @@ export default function handler(req, res) {
         ...json,
         answer: AI_ONBOARDING_START_ANSWER,
         onboardingReview: false,
-        quickReplies: ["Trabajo", "Instawork", "Amazon Flex", "Efectivo"],
+        quickReplies: ["Comprar casa", "Comprar carro", "Salir de deudas", "Fondo de emergencia"],
         decision: "onboarding",
         pendingAction: null,
         pendingForm: null,
