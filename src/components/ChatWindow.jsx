@@ -478,8 +478,8 @@ export default function ChatWindow({
     <main className="chat-shell">
       <header className="chat-header">
         <div>
-          <p>Conversación activa</p>
-          <h2>{chat.title}</h2>
+          <h2>Johan AI</h2>
+          <p>Tu coach financiero inteligente</p>
         </div>
         <div className={`status-pill ${connectionStatus || "checking"}`}>
           <span />
@@ -693,7 +693,7 @@ export default function ChatWindow({
       <form className="composer" onSubmit={handleSubmit}>
         <textarea
           aria-label="Mensaje para Johan AI"
-          placeholder="Escribe tu mensaje..."
+          placeholder="Pregunta algo o registra un movimiento..."
           rows="1"
           value={message}
           onChange={(event) => setMessage(event.target.value)}
@@ -702,7 +702,7 @@ export default function ChatWindow({
           }}
         />
         <button disabled={!message.trim() || isLoading} type="submit">
-          {isLoading ? "Pensando..." : "Enviar"}
+          {isLoading ? "..." : "➤"}
         </button>
       </form>
     </main>

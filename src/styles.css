@@ -2579,3 +2579,524 @@ button {
     width: 100%;
   }
 }
+
+/* Johan AI fintech redesign */
+:root {
+  --bg: #05070b;
+  --panel: rgba(13, 18, 27, 0.88);
+  --panel-soft: rgba(18, 25, 38, 0.78);
+  --line: rgba(148, 163, 184, 0.14);
+  --line-strong: rgba(0, 255, 153, 0.24);
+  --text: #f8fafc;
+  --muted: #94a3b8;
+  --green: #00ff99;
+  --green-soft: rgba(0, 255, 153, 0.12);
+  --blue: #38bdf8;
+  --purple: #a78bfa;
+  --danger: #fb7185;
+  --warning: #fbbf24;
+  --radius: 18px;
+  --shadow-soft: 0 24px 80px rgba(0, 0, 0, 0.32);
+}
+
+body {
+  background:
+    radial-gradient(circle at 12% 8%, rgba(0, 255, 153, 0.12), transparent 28%),
+    radial-gradient(circle at 78% 0%, rgba(56, 189, 248, 0.12), transparent 30%),
+    radial-gradient(circle at 86% 76%, rgba(167, 139, 250, 0.08), transparent 26%),
+    var(--bg);
+}
+
+.app-shell {
+  grid-template-columns: 228px minmax(0, 1fr) 372px;
+  gap: 14px;
+  padding: 14px;
+  background: transparent;
+}
+
+.sidebar,
+.chat-shell {
+  height: calc(100vh - 28px);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.015)),
+    rgba(7, 10, 17, 0.82);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(18px);
+}
+
+.left-panel,
+.right-panel {
+  border-color: var(--line);
+}
+
+.left-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 18px;
+}
+
+.brand {
+  margin-bottom: 0;
+}
+
+.brand-mark {
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(0, 255, 153, 0.18), rgba(56, 189, 248, 0.12));
+  box-shadow: 0 0 28px rgba(0, 255, 153, 0.18);
+}
+
+.brand h1 {
+  font-size: 19px;
+  letter-spacing: 0;
+}
+
+.brand span {
+  font-size: 12px;
+}
+
+.sidebar-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  border: 1px solid rgba(0, 255, 153, 0.24);
+  border-radius: 999px;
+  background: rgba(0, 255, 153, 0.08);
+  color: var(--green);
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.sidebar-status span {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--green);
+  box-shadow: 0 0 12px var(--green);
+}
+
+.sidebar-nav {
+  display: grid;
+  gap: 8px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 38px;
+  border: 1px solid transparent;
+  border-radius: 13px;
+  background: transparent;
+  color: var(--muted);
+  padding: 0 11px;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 820;
+}
+
+.nav-item.active {
+  border-color: rgba(0, 255, 153, 0.28);
+  background: linear-gradient(90deg, rgba(0, 255, 153, 0.14), rgba(56, 189, 248, 0.07));
+  color: var(--text);
+}
+
+.nav-item.disabled {
+  opacity: 0.58;
+}
+
+.mode-badge-panel,
+.user-panel,
+.quiet-actions {
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.mode-badge-panel {
+  border: 1px solid rgba(56, 189, 248, 0.18);
+  padding: 12px;
+}
+
+.mode-badge-panel span,
+.panel-subheading span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.mode-badge-panel strong {
+  display: block;
+  margin-top: 5px;
+  color: var(--green);
+  font-size: 18px;
+}
+
+.mode-badge-panel p,
+.quiet-actions button,
+.user-panel strong {
+  font-size: 12px;
+}
+
+.quiet-actions {
+  display: grid;
+  gap: 7px;
+  margin-top: auto;
+  border: 1px solid var(--line);
+  padding: 10px;
+}
+
+.quiet-actions button {
+  min-height: 30px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  text-align: left;
+}
+
+.quiet-actions button:hover {
+  border-color: var(--line);
+  color: var(--text);
+}
+
+.chat-shell {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  overflow: hidden;
+}
+
+.chat-header {
+  min-height: 76px;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(90deg, rgba(0, 255, 153, 0.06), transparent 46%, rgba(56, 189, 248, 0.05));
+  padding: 18px 24px;
+}
+
+.chat-header h2 {
+  font-size: 25px;
+  letter-spacing: 0;
+}
+
+.chat-header p {
+  margin-top: 5px;
+  font-size: 13px;
+}
+
+.status-pill {
+  min-height: 32px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.messages {
+  padding: 22px 26px;
+}
+
+.message-row {
+  margin-bottom: 14px;
+}
+
+.avatar {
+  border: 1px solid rgba(0, 255, 153, 0.2);
+  background: rgba(0, 255, 153, 0.09);
+  color: var(--green);
+  font-size: 11px;
+}
+
+.message-bubble {
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.045);
+  box-shadow: none;
+  padding: 12px 14px;
+}
+
+.message-row.user .message-bubble {
+  background: linear-gradient(135deg, rgba(0, 255, 153, 0.14), rgba(56, 189, 248, 0.08));
+}
+
+.message-bubble p {
+  line-height: 1.48;
+}
+
+.quick-replies button,
+.form-actions button,
+.onboarding-card button,
+.manual-add-bar button {
+  min-height: 31px;
+  border-radius: 999px;
+}
+
+.manual-add-bar {
+  padding: 9px 24px;
+}
+
+.composer {
+  grid-template-columns: minmax(0, 1fr) 46px;
+  gap: 10px;
+  border-top: 1px solid var(--line);
+  background: rgba(2, 6, 12, 0.56);
+  padding: 14px 24px 18px;
+}
+
+.composer textarea {
+  min-height: 46px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.composer button {
+  min-height: 46px;
+  border-radius: 16px;
+  box-shadow: 0 0 28px rgba(0, 255, 153, 0.16);
+  font-size: 18px;
+}
+
+.right-panel {
+  padding: 16px;
+}
+
+.panel-heading {
+  margin-bottom: 12px;
+}
+
+.panel-heading h2 {
+  font-size: 22px;
+}
+
+.goal-dashboard-card,
+.mission-card,
+.priority-card,
+.transaction-list,
+.smart-summary,
+.debt-list,
+.auto-allocation-card,
+.simulation-card,
+.alerts-panel,
+.mistakes-card {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 13px;
+}
+
+.goal-dashboard-card {
+  border-color: rgba(0, 255, 153, 0.24);
+  background:
+    linear-gradient(135deg, rgba(0, 255, 153, 0.14), rgba(56, 189, 248, 0.065)),
+    rgba(255, 255, 255, 0.04);
+}
+
+.goal-dashboard-card > span {
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.goal-dashboard-card h3 {
+  margin: 8px 0 6px;
+  font-size: 20px;
+}
+
+.goal-money-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.goal-money-row strong {
+  color: #fff;
+  font-size: 23px;
+}
+
+.goal-money-row em {
+  color: var(--muted);
+  font-style: normal;
+  font-size: 13px;
+}
+
+.goal-dashboard-card dl {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+  margin: 12px 0 0;
+}
+
+.goal-dashboard-card dl div,
+.finance-metric {
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 13px;
+  background: rgba(2, 6, 12, 0.26);
+  padding: 9px;
+}
+
+.goal-dashboard-card dt,
+.finance-metric span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.goal-dashboard-card dd {
+  margin: 4px 0 0;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.finance-stack {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.finance-metric {
+  min-height: 76px;
+}
+
+.finance-metric strong {
+  font-size: 18px;
+}
+
+.mission-card {
+  border-color: rgba(251, 191, 36, 0.24);
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.09), rgba(0, 255, 153, 0.045));
+}
+
+.mission-card button {
+  width: fit-content;
+  min-height: 30px;
+  border: 1px solid rgba(251, 191, 36, 0.24);
+  border-radius: 999px;
+  background: rgba(251, 191, 36, 0.1);
+  color: #fde68a;
+  padding: 0 10px;
+  font-weight: 850;
+}
+
+.priority-card {
+  border-color: rgba(251, 113, 133, 0.22);
+}
+
+.transaction-list div,
+.debt-list div,
+.debt-list p,
+.transaction-list p {
+  border-radius: 13px;
+  background: rgba(2, 6, 12, 0.24);
+}
+
+.onboarding-wizard {
+  width: min(620px, 100%);
+  border-radius: 16px;
+}
+
+.wizard-chip {
+  min-height: 34px;
+}
+
+.calendar-shell,
+.calendar-container,
+.month-calendar-card {
+  border-radius: 20px;
+}
+
+.month-day {
+  background: rgba(255, 255, 255, 0.035);
+}
+
+@media (max-width: 1180px) {
+  .app-shell {
+    grid-template-columns: 86px minmax(0, 1fr);
+  }
+
+  .left-panel {
+    padding: 12px;
+  }
+
+  .brand h1,
+  .brand span,
+  .nav-item:not(.active),
+  .mode-badge-panel p,
+  .quiet-actions,
+  .user-panel strong,
+  .user-panel span {
+    display: none;
+  }
+
+  .brand {
+    justify-content: center;
+  }
+
+  .nav-item {
+    justify-content: center;
+    padding: 0;
+  }
+
+  .right-panel {
+    grid-column: 2;
+    display: grid;
+    height: auto;
+    max-height: none;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .app-shell {
+    display: flex;
+    flex-direction: column;
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+    padding: 10px;
+  }
+
+  .sidebar,
+  .chat-shell {
+    width: 100%;
+    height: auto;
+    border-radius: 18px;
+  }
+
+  .left-panel {
+    display: grid;
+    grid-template-columns: auto 1fr;
+  }
+
+  .sidebar-status,
+  .mode-badge-panel,
+  .user-panel {
+    display: none;
+  }
+
+  .sidebar-nav {
+    display: flex;
+    overflow-x: auto;
+  }
+
+  .nav-item {
+    min-width: max-content;
+    padding: 0 10px;
+  }
+
+  .chat-shell {
+    min-height: 70vh;
+  }
+
+  .right-panel {
+    display: grid;
+    grid-template-columns: 1fr;
+    max-height: none;
+    order: 3;
+  }
+
+  .goal-dashboard-card dl,
+  .finance-stack {
+    grid-template-columns: 1fr;
+  }
+}

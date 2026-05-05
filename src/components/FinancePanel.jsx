@@ -11,22 +11,11 @@ const defaultFinancialData = {
   incomeToday: 0,
   expensesToday: 0,
   debts: [],
-  goal: {
-    name: "Casa Colombia",
-    saved: 0
-  },
+  goal: { name: "Casa Colombia", saved: 0 },
   transactions: [],
   alerts: [],
   allocations: [],
   universalMemory: [],
-  learningProfile: {
-    patterns: [],
-    preferencesLearned: [],
-    badHabitsDetected: [],
-    goodHabitsDetected: [],
-    strategyAdjustments: [],
-    confidence: 0
-  },
   mode: "normal"
 };
 
@@ -37,6 +26,12 @@ const defaultSummary = {
   mostCommonExpense: null
 };
 
+const transactionMeta = {
+  income: { emoji: "💰", label: "ingreso", sign: "+" },
+  expense: { emoji: "🧾", label: "gasto", sign: "-" },
+  debt_payment: { emoji: "💳", label: "deuda", sign: "-" }
+};
+
 function FinanceMetric({ label, value, tone = "neutral" }) {
   return (
     <div className={`finance-metric ${tone}`}>
@@ -45,12 +40,6 @@ function FinanceMetric({ label, value, tone = "neutral" }) {
     </div>
   );
 }
-
-const transactionMeta = {
-  income: { emoji: "💰", label: "ingreso", sign: "+" },
-  expense: { emoji: "🧾", label: "gasto", sign: "-" },
-  debt_payment: { emoji: "💳", label: "deuda", sign: "-" }
-};
 
 function isRealTransaction(transaction) {
   return (
@@ -82,17 +71,11 @@ export default function FinancePanel({
   const data = {
     ...defaultFinancialData,
     ...financialData,
-    goal: {
-      ...defaultFinancialData.goal,
-      ...financialData?.goal
-    },
+    goal: { ...defaultFinancialData.goal, ...financialData?.goal },
     debts: Array.isArray(financialData?.debts) ? financialData.debts : [],
     transactions: Array.isArray(financialData?.transactions) ? financialData.transactions : [],
     alerts: Array.isArray(financialData?.alerts) ? financialData.alerts : [],
-    allocations: Array.isArray(financialData?.allocations) ? financialData.allocations : [],
-    universalMemory: Array.isArray(financialData?.universalMemory)
-      ? financialData.universalMemory
-      : []
+    allocations: Array.isArray(financialData?.allocations) ? financialData.allocations : []
   };
   const safeSummary = { ...defaultSummary, ...summary };
   const totalDebt = data.debts.reduce((sum, debt) => sum + Number(debt.amount || 0), 0);
@@ -105,203 +88,120 @@ export default function FinancePanel({
     mode: data.mode,
     safeToSpend: 0,
     urgentDebt: data.debts.find((debt) => Number(debt.amount || 0) > 0) || null,
-    goal: data.goal,
+    mainGoal: financialData?.mainGoal || null,
+    goalRemaining: 0,
     primaryAlert: alerts?.[0] || data.alerts[0] || null,
     suggestions: []
   };
 
+  const mainGoal = daily.mainGoal || financialData?.mainGoal || {
+    name: data.goal.name || "Casa Colombia",
+    targetAmount: 0,
+    savedAmount: data.goal.saved || 0,
+    dailyNeeded: 0,
+    weeklyNeeded: 0
+  };
+  const goalTarget = Number(mainGoal.targetAmount || 0);
+  const goalSaved = Number(mainGoal.savedAmount || data.goal.saved || 0);
+  const goalRemaining = Math.max(0, goalTarget - goalSaved);
+  const goalProgress = goalTarget > 0 ? Math.min(100, Math.round((goalSaved / goalTarget) * 100)) : 0;
+
   return (
     <aside className="sidebar right-panel">
       <div className="panel-heading">
-        <p>Resumen diario</p>
+        <p>Dashboard</p>
         <h2>Tu dia</h2>
       </div>
 
-      <section className="daily-summary-card">
-        <p>{daily.greeting}</p>
-        {daily.mainGoal && (
-          <div className="main-goal-mini">
-            <span>🎯 Objetivo principal</span>
-            <strong>{daily.mainGoal.name}</strong>
-            <p>
-              Faltan {currencyFormatter.format(daily.goalRemaining || 0)} · Hoy{" "}
-              {currencyFormatter.format(daily.mainGoal.dailyNeeded || 0)} · Semana{" "}
-              {currencyFormatter.format(daily.mainGoal.weeklyNeeded || 0)}
-            </p>
-          </div>
-        )}
-        <div className="daily-summary-grid">
-          <div>
-            <span>Seguro para gastar</span>
-            <strong>{currencyFormatter.format(daily.safeToSpend || 0)}</strong>
-          </div>
-          <div>
-            <span>Modo automatico</span>
-            <strong>{daily.mode || data.mode}</strong>
-          </div>
+      <section className="goal-dashboard-card">
+        <span>🎯 Objetivo principal</span>
+        <h3>{mainGoal.name || "Casa Colombia"}</h3>
+        <div className="goal-money-row">
+          <strong>{currencyFormatter.format(goalSaved)}</strong>
+          <em>/ {currencyFormatter.format(goalTarget)}</em>
         </div>
-        {daily.urgentDebt && (
-          <p>Prioridad: {daily.urgentDebt.name} ({currencyFormatter.format(Number(daily.urgentDebt.amount || 0))})</p>
-        )}
-        {daily.primaryAlert && <p className="daily-alert">{daily.primaryAlert.message}</p>}
-        <div className="quick-suggestions">
-          {(daily.suggestions || []).slice(0, 3).map((suggestion) => (
-            <span key={suggestion}>{suggestion}</span>
-          ))}
+        <div className="goal-bar" aria-label={`Progreso ${goalProgress}%`}>
+          <span style={{ width: `${goalProgress}%` }} />
         </div>
+        <dl>
+          <div><dt>Falta</dt><dd>{currencyFormatter.format(goalRemaining)}</dd></div>
+          <div><dt>Hoy</dt><dd>{currencyFormatter.format(mainGoal.dailyNeeded || 0)}</dd></div>
+          <div><dt>Semana</dt><dd>{currencyFormatter.format(mainGoal.weeklyNeeded || 0)}</dd></div>
+        </dl>
       </section>
 
       <div className="finance-stack">
-        <FinanceMetric
-          label="Balance"
-          tone={data.balance >= 0 ? "positive" : "danger"}
-          value={currencyFormatter.format(data.balance)}
-        />
-        <FinanceMetric
-          label="Ingresos del día"
-          tone="positive"
-          value={`+${currencyFormatter.format(data.incomeToday)}`}
-        />
-        <FinanceMetric
-          label="Gastos del día"
-          tone="warning"
-          value={`-${currencyFormatter.format(data.expensesToday)}`}
-        />
-        <FinanceMetric
-          label="Deudas"
-          tone="danger"
-          value={currencyFormatter.format(totalDebt)}
-        />
+        <FinanceMetric label="💰 Balance" tone={data.balance >= 0 ? "positive" : "danger"} value={currencyFormatter.format(data.balance)} />
+        <FinanceMetric label="📈 Ingresos" tone="positive" value={`+${currencyFormatter.format(data.incomeToday)}`} />
+        <FinanceMetric label="💸 Gastos" tone="warning" value={`-${currencyFormatter.format(data.expensesToday)}`} />
+        <FinanceMetric label="🧾 Deudas" tone="danger" value={currencyFormatter.format(totalDebt)} />
+        <FinanceMetric label="🛡️ Seguro" tone="positive" value={currencyFormatter.format(daily.safeToSpend || 0)} />
       </div>
-
-      <section className="goal-card">
-        <div>
-          <span>Meta {data.goal.name}</span>
-          <strong>{currencyFormatter.format(data.goal.saved)}</strong>
-        </div>
-        <div
-          className="goal-bar"
-          aria-label={`Ahorro actual ${currencyFormatter.format(data.goal.saved)}`}
-        >
-          <span style={{ width: data.goal.saved > 0 ? "12%" : "0%" }} />
-        </div>
-        <p>Modo {data.mode}</p>
-      </section>
 
       <section className="mission-card">
         <div className="panel-subheading">
-          <span>Misión de hoy</span>
+          <span>🔥 Mision de hoy</span>
         </div>
         {dailyMission ? (
           <div>
             <strong>{dailyMission.title}</strong>
             <p>{dailyMission.description}</p>
-            <span>{dailyMission.status} - XP +{dailyMission.rewardXp || 20}</span>
+            <span>XP +{dailyMission.rewardXp || 20} - Racha {missionStats.streak || 0}</span>
             <div className="mission-progress">
-              <span
-                style={{
-                  width: `${Math.min(
-                    100,
-                    Math.round((Number(dailyMission.progress || 0) / Math.max(Number(dailyMission.target || 1), 1)) * 100)
-                  )}%`
-                }}
-              />
+              <span style={{ width: `${Math.min(100, Math.round((Number(dailyMission.progress || 0) / Math.max(Number(dailyMission.target || 1), 1)) * 100))}%` }} />
             </div>
-            <p>
-              XP {missionStats.xp || 0} - Racha {missionStats.streak || 0} - Mejor {missionStats.bestStreak || 0}
-            </p>
-            {(missionStats.badges || []).length > 0 && (
-              <div className="badge-row">
-                {missionStats.badges.slice(0, 4).map((badge) => (
-                  <span key={badge}>{badge}</span>
-                ))}
-              </div>
-            )}
+            <button type="button">Ver progreso</button>
           </div>
         ) : (
-          <p>No hay misión activa.</p>
+          <p>No hay mision activa.</p>
         )}
       </section>
 
-      <section className="mistakes-card">
+      <section className="priority-card">
         <div className="panel-subheading">
-          <span>Errores detectados</span>
+          <span>⚠️ Prioridad</span>
         </div>
-        {(mistakes || []).slice(0, 3).length > 0 ? (
-          (mistakes || []).slice(0, 3).map((mistake) => (
-            <article className={mistake.severity} key={mistake.id}>
-              <strong>{mistake.message}</strong>
-              <p>{mistake.evidence}</p>
-            </article>
-          ))
+        {daily.urgentDebt ? (
+          <p>Paga primero {daily.urgentDebt.name} - {currencyFormatter.format(Number(daily.urgentDebt.amount || 0))}</p>
+        ) : daily.primaryAlert ? (
+          <p>{daily.primaryAlert.message}</p>
         ) : (
-          <p>Sin errores activos.</p>
+          <p>Sin alertas criticas ahora.</p>
         )}
       </section>
 
       <AlertsPanel alerts={alerts?.length ? alerts : data.alerts} />
 
-      <section className="auto-allocation-card">
+      <section className="transaction-list" aria-label="Ultimas transacciones">
         <div className="panel-subheading">
-          <span>Asignación automática</span>
-        </div>
-        {latestAutoPlan ? (
-          <div>
-            <strong>Ingreso: {currencyFormatter.format(latestAutoPlan.income)}</strong>
-            <p>Gastos: {currencyFormatter.format(latestAutoPlan.distribution.expenses)}</p>
-            <p>Casa Colombia: {currencyFormatter.format(latestAutoPlan.distribution.savings)}</p>
-            <p>Deuda: {currencyFormatter.format(latestAutoPlan.distribution.debt)}</p>
-          </div>
-        ) : (
-          <p>No hay asignaciones todavía.</p>
-        )}
-      </section>
-
-      <section className="smart-summary">
-        <div className="panel-subheading">
-          <span>Resumen Inteligente</span>
-        </div>
-        <FinanceMetric
-          label="Total ganado"
-          tone="positive"
-          value={currencyFormatter.format(safeSummary.totalIncome)}
-        />
-        <FinanceMetric
-          label="Total gastado"
-          tone="warning"
-          value={currencyFormatter.format(safeSummary.totalExpenses)}
-        />
-        <FinanceMetric
-          label="Promedio diario"
-          value={currencyFormatter.format(safeSummary.dailyAverageExpense)}
-        />
-        <p className="insight-line">
-          Gasto frecuente: {safeSummary.mostCommonExpense || "sin datos todavía"}
-        </p>
-      </section>
-
-      <section className="transaction-list" aria-label="Últimas transacciones">
-        <div className="panel-subheading">
-          <span>Últimas 5 transacciones</span>
+          <span>Ultimas 5 transacciones</span>
         </div>
         {recentTransactions.length > 0 ? (
           recentTransactions.map((transaction) => {
             const meta = transactionMeta[transaction.type] || transactionMeta.expense;
             return (
-            <div className={transaction.type} key={transaction.id || `${transaction.type}-${transaction.description}-${transaction.createdAt}`}>
-              <span>
-                {meta.emoji} {transaction.description || transaction.category || transaction.name}
-                <small>{transactionDate(transaction)} · {meta.label}</small>
-              </span>
-              <strong>
-                {meta.sign}
-                {currencyFormatter.format(transaction.amount)}
-              </strong>
-            </div>
-          );})
+              <div className={transaction.type} key={transaction.id || `${transaction.type}-${transaction.description}-${transaction.createdAt}`}>
+                <span>
+                  {meta.emoji} {transaction.description || transaction.category || transaction.name}
+                  <small>{transactionDate(transaction)} - {meta.label}</small>
+                </span>
+                <strong>{meta.sign}{currencyFormatter.format(transaction.amount)}</strong>
+              </div>
+            );
+          })
         ) : (
-          <p>No hay transacciones todavía.</p>
+          <p>No hay transacciones todavia.</p>
         )}
+      </section>
+
+      <section className="smart-summary">
+        <div className="panel-subheading">
+          <span>Resumen inteligente</span>
+        </div>
+        <FinanceMetric label="Total ganado" tone="positive" value={currencyFormatter.format(safeSummary.totalIncome)} />
+        <FinanceMetric label="Total gastado" tone="warning" value={currencyFormatter.format(safeSummary.totalExpenses)} />
+        <FinanceMetric label="Promedio diario" value={currencyFormatter.format(safeSummary.dailyAverageExpense)} />
+        <p className="insight-line">Gasto frecuente: {safeSummary.mostCommonExpense || "sin datos todavia"}</p>
       </section>
 
       <section className="debt-list" aria-label="Detalle de deudas">
@@ -320,16 +220,30 @@ export default function FinancePanel({
         )}
       </section>
 
+      <section className="auto-allocation-card">
+        <div className="panel-subheading">
+          <span>Avanza Casa Colombia</span>
+        </div>
+        {latestAutoPlan ? (
+          <div>
+            <strong>Ingreso: {currencyFormatter.format(latestAutoPlan.income)}</strong>
+            <p>Gastos: {currencyFormatter.format(latestAutoPlan.distribution.expenses)}</p>
+            <p>Meta: {currencyFormatter.format(latestAutoPlan.distribution.savings)}</p>
+            <p>Deuda: {currencyFormatter.format(latestAutoPlan.distribution.debt)}</p>
+          </div>
+        ) : (
+          <p>No hay asignaciones todavia.</p>
+        )}
+      </section>
+
       <section className="simulation-card">
-        <button type="button" onClick={onOpenCalendar}>
-          📅 Calendario
-        </button>
+        <button type="button" onClick={onOpenCalendar}>📅 Calendario</button>
         <button disabled={isSimulating} type="button" onClick={onSimulate}>
           {isSimulating ? "Simulando..." : "Simular futuro"}
         </button>
         {simulation && (
           <div>
-            <span>{simulation.days} días</span>
+            <span>{simulation.days} dias</span>
             <strong>{currencyFormatter.format(simulation.projectedBalance)}</strong>
             <p>{simulation.warning}</p>
           </div>
