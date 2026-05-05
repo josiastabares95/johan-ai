@@ -811,6 +811,8 @@ function isAiOnboardingStartRequest(question) {
     "hacer test con ia",
     "test con ia",
     "test financiero con ia",
+    "test financiero",
+    "hacer test",
     "quiero hacer el test financiero con ia paso a paso",
     "hacer el test financiero con ia paso a paso",
     "onboarding con ia"
@@ -829,7 +831,8 @@ function startAiOnboarding() {
   };
   saveFinancialState();
   return {
-    answer: onboardingQuestions.income,
+    answer:
+      "🔥 Perfecto, vamos paso a paso. Primero necesito saber tus ingresos.\n¿Cuáles son tus fuentes de ingreso actualmente?\nEjemplo: trabajo, Instawork, Amazon Flex, efectivo, Zelle, otro.",
     onboarding: financialState.onboarding
   };
 }
