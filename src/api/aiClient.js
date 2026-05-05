@@ -244,14 +244,14 @@ export function simulateFuture(days = 30) {
 }
 
 export function editDebt(name, data) {
-  return requestJson(`/debt/${encodeURIComponent(name)}`, {
+  return requestJson(`/debt?name=${encodeURIComponent(name)}`, {
     method: "PUT",
     body: JSON.stringify(data)
   });
 }
 
 export function deleteDebt(name) {
-  return requestJson(`/debt/${encodeURIComponent(name)}`, {
+  return requestJson(`/debt?name=${encodeURIComponent(name)}`, {
     method: "DELETE"
   });
 }
