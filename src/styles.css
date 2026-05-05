@@ -1423,6 +1423,188 @@ button {
   font-weight: 850;
 }
 
+.calendar-month-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.calendar-month-toolbar button {
+  min-height: 34px;
+  border: 1px solid rgba(0, 255, 153, 0.25);
+  border-radius: 10px;
+  background: rgba(0, 255, 153, 0.07);
+  color: var(--text);
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.month-calendar-card {
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(0, 255, 153, 0.22);
+  border-radius: 14px;
+  background:
+    linear-gradient(135deg, rgba(0, 255, 153, 0.065), rgba(96, 165, 250, 0.045)),
+    rgba(255, 255, 255, 0.025);
+  padding: 12px;
+}
+
+.month-weekdays,
+.month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.month-weekdays span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.month-day {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-height: 96px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.16);
+  color: var(--text);
+  padding: 8px;
+  text-align: left;
+}
+
+.month-day:not(.empty):hover {
+  border-color: rgba(0, 255, 153, 0.5);
+  background: rgba(0, 255, 153, 0.06);
+}
+
+.month-day.empty {
+  opacity: 0.32;
+  cursor: default;
+}
+
+.month-day.today {
+  border-color: var(--green);
+  box-shadow: inset 0 0 0 1px rgba(0, 255, 153, 0.25), 0 0 18px rgba(0, 255, 153, 0.08);
+}
+
+.day-number {
+  width: fit-content;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.month-day.today .day-number {
+  background: var(--green);
+  color: #06130d;
+  padding: 2px 7px;
+}
+
+.day-events {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.day-event,
+.day-more {
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--text);
+  padding: 3px 5px;
+  font-size: 10px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.day-event.income {
+  border-color: rgba(0, 255, 153, 0.22);
+}
+
+.day-event.alert {
+  border-color: rgba(255, 204, 102, 0.32);
+}
+
+.day-event.payoff_estimate,
+.day-event.goal {
+  border-color: rgba(96, 165, 250, 0.28);
+}
+
+.day-more {
+  color: var(--muted);
+}
+
+.calendar-day-modal {
+  display: grid;
+  gap: 14px;
+  width: min(520px, 100%);
+  max-height: min(640px, 86vh);
+  overflow-y: auto;
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  background: #111;
+  padding: 18px;
+}
+
+.calendar-day-modal header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.calendar-day-modal header span {
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.calendar-day-modal h2,
+.calendar-empty-day {
+  margin: 0;
+}
+
+.calendar-day-modal button {
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--panel-soft);
+  color: var(--text);
+  padding: 8px 12px;
+}
+
+.calendar-day-events {
+  display: grid;
+  gap: 8px;
+}
+
+.calendar-day-events article {
+  display: grid;
+  gap: 5px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 10px;
+}
+
+.calendar-day-events article p,
+.calendar-empty-day {
+  color: var(--muted);
+  font-size: 13px;
+}
+
 .calendar-empty-state,
 .calendar-section,
 .calendar-goal-card {
@@ -1606,6 +1788,23 @@ button {
 @media (max-width: 720px) {
   .form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .calendar-page {
+    padding: 16px;
+  }
+
+  .month-calendar-card {
+    overflow-x: auto;
+  }
+
+  .month-weekdays,
+  .month-grid {
+    min-width: 640px;
+  }
+
+  .month-day {
+    min-height: 88px;
   }
 }
 

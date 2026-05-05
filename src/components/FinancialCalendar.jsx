@@ -1,9 +1,112 @@
-import { useEffect, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { getFinancialCalendar } from "../api/aiClient.js";
+
+const WEEK_DAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+
+const eventMeta = {
+  debt: { emoji: "💳", label: "deuda" },
+  debt_payment: { emoji: "💳", label: "deuda" },
+  income: { emoji: "💰", label: "ingreso" },
+  expense: { emoji: "🧾", label: "gasto" },
+  goal: { emoji: "🎯", label: "meta" },
+  alert: { emoji: "⚠️", label: "alerta" },
+  payoff_estimate: { emoji: "⏳", label: "fin estimado deuda" }
+};
+
+function toDateKey(date) {
+  if (!date) return null;
+  return String(date).slice(0, 10);
+}
+
+function formatMonthTitle(monthDate) {
+  return monthDate.toLocaleDateString("es-US", { month: "long", year: "numeric" });
+}
+
+function buildMonthCells(monthDate) {
+  const year = monthDate.getFullYear();
+  const month = monthDate.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const leadingEmpty = (firstDay.getDay() + 6) % 7;
+  const totalCells = Math.ceil((leadingEmpty + lastDay.getDate()) / 7) * 7;
+
+  return Array.from({ length: totalCells }, (_, index) => {
+    const dayNumber = index - leadingEmpty + 1;
+    if (dayNumber < 1 || dayNumber > lastDay.getDate()) {
+      return { key: `empty-${index}`, empty: true };
+    }
+    const date = new Date(year, month, dayNumber);
+    const key = date.toISOString().slice(0, 10);
+    return { key, date, dayNumber, empty: false };
+  });
+}
+
+function normalizeEvents(data, today) {
+  const safeEvents = Array.isArray(data.events) ? data.events : [];
+  const upcomingPayments = Array.isArray(data.upcomingPayments) ? data.upcomingPayments : [];
+  const payoffDates = Array.isArray(data.debtPayoffDates) ? data.debtPayoffDates : [];
+  const alerts = Array.isArray(data.alerts) ? data.alerts : [];
+  const events = [...safeEvents];
+
+  upcomingPayments.forEach((payment, index) => {
+    events.push({
+      id: `payment-${payment.name || index}`,
+      title: `${payment.name || "Pago"} $${payment.amount || 0}`,
+      type: payment.type === "income" ? "income" : "debt",
+      date: payment.dueDate,
+      amount: payment.amount,
+      description: payment.overdue ? "Pago atrasado" : "Próximo pago"
+    });
+  });
+
+  payoffDates.forEach((debt, index) => {
+    events.push({
+      id: `payoff-${debt.debt || debt.name || index}`,
+      title: `${debt.debt || debt.name || "Deuda"} libre`,
+      type: "payoff_estimate",
+      date: debt.payoffDate,
+      description: debt.message || "Fecha estimada de final de deuda"
+    });
+  });
+
+  if (data.goalProgress?.targetDate) {
+    events.push({
+      id: "goal-target",
+      title: data.goalProgress.name || "Meta",
+      type: "goal",
+      date: data.goalProgress.targetDate,
+      description: "Fecha ideal de meta"
+    });
+  }
+
+  alerts.slice(0, 8).forEach((alert, index) => {
+    events.push({
+      id: `alert-${index}`,
+      title: alert.message || "Alerta financiera",
+      type: "alert",
+      date: toDateKey(alert.createdAt) || today,
+      description: alert.type || "alerta"
+    });
+  });
+
+  return events
+    .map((event, index) => ({
+      ...event,
+      id: event.id || `event-${index}`,
+      date: toDateKey(event.date),
+      type: event.type || "expense"
+    }))
+    .filter((event) => event.date);
+}
 
 export default function FinancialCalendar({ onBack }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [viewMonth, setViewMonth] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
 
   useEffect(() => {
     getFinancialCalendar()
@@ -13,58 +116,130 @@ export default function FinancialCalendar({ onBack }) {
   }, []);
 
   const safeData = data || {};
-  const upcomingPayments = Array.isArray(safeData.upcomingPayments) ? safeData.upcomingPayments : [];
-  const debtPayoffDates = Array.isArray(safeData.debtPayoffDates) ? safeData.debtPayoffDates : [];
-  const alerts = Array.isArray(safeData.alerts) ? safeData.alerts : [];
-  const events = Array.isArray(safeData.events) ? safeData.events : [];
   const today = safeData.today || new Date().toISOString().slice(0, 10);
+  const allEvents = useMemo(() => normalizeEvents(safeData, today), [safeData, today]);
+  const eventsByDate = useMemo(() => {
+    return allEvents.reduce((grouped, event) => {
+      grouped[event.date] = [...(grouped[event.date] || []), event];
+      return grouped;
+    }, {});
+  }, [allEvents]);
+  const monthCells = useMemo(() => buildMonthCells(viewMonth), [viewMonth]);
+  const upcomingPayments = Array.isArray(safeData.upcomingPayments) ? safeData.upcomingPayments : [];
+  const selectedEvents = selectedDate ? eventsByDate[selectedDate] || [] : [];
+
+  const moveMonth = (amount) => {
+    setViewMonth((current) => new Date(current.getFullYear(), current.getMonth() + amount, 1));
+    setSelectedDate(null);
+  };
+
+  const goToday = () => {
+    const now = new Date();
+    setViewMonth(new Date(now.getFullYear(), now.getMonth(), 1));
+    setSelectedDate(null);
+  };
 
   const formatDate = (date) => {
     if (!date) return "Sin fecha";
     try {
-      return new Date(`${date}T12:00:00`).toLocaleDateString("es-CO", {
-        month: "short",
-        day: "numeric"
-      });
+      return new Date(`${date}T12:00:00`).toLocaleDateString("es-US", { month: "short", day: "numeric" });
     } catch {
       return date;
     }
   };
 
-  const isOverdue = (date) => date && date < today;
   const daysUntil = (date) => {
     if (!date) return null;
     return Math.ceil((new Date(`${date}T12:00:00`) - new Date()) / 86400000);
   };
-
-  if (loading) {
-    return (
-      <section className="financial-calendar-view">
-        <header>
-          <div>
-            <span>📅 Calendario financiero</span>
-            <h2>Cargando calendario...</h2>
-          </div>
-          <button type="button" onClick={onBack}>Volver al chat</button>
-        </header>
-      </section>
-    );
-  }
 
   return (
     <section className="financial-calendar-view">
       <header>
         <div>
           <span>📅 Calendario financiero</span>
-          <h2>Mes actual</h2>
+          <h2>{loading ? "Cargando calendario..." : formatMonthTitle(viewMonth)}</h2>
         </div>
         <button type="button" onClick={onBack}>Volver al chat</button>
       </header>
 
-      {events.length === 0 && upcomingPayments.length === 0 && debtPayoffDates.length === 0 && alerts.length === 0 && (
+      <div className="calendar-month-toolbar">
+        <button type="button" onClick={() => moveMonth(-1)}>← Mes anterior</button>
+        <button type="button" onClick={goToday}>Hoy</button>
+        <button type="button" onClick={() => moveMonth(1)}>Mes siguiente →</button>
+      </div>
+
+      <div className="month-calendar-card">
+        <div className="month-weekdays">
+          {WEEK_DAYS.map((day) => <span key={day}>{day}</span>)}
+        </div>
+        <div className="month-grid">
+          {monthCells.map((cell) => {
+            const dayEvents = cell.empty ? [] : eventsByDate[cell.key] || [];
+            const visibleEvents = dayEvents.slice(0, 2);
+            return (
+              <button
+                className={`month-day ${cell.empty ? "empty" : ""} ${cell.key === today ? "today" : ""}`}
+                disabled={cell.empty}
+                key={cell.key}
+                type="button"
+                onClick={() => setSelectedDate(cell.key)}
+              >
+                {!cell.empty && (
+                  <>
+                    <span className="day-number">{cell.dayNumber}</span>
+                    <div className="day-events">
+                      {visibleEvents.map((event) => {
+                        const meta = eventMeta[event.type] || eventMeta.expense;
+                        return (
+                          <span className={`day-event ${event.type}`} key={event.id}>
+                            {meta.emoji} {event.title || meta.label}
+                          </span>
+                        );
+                      })}
+                      {dayEvents.length > 2 && <span className="day-more">+{dayEvents.length - 2} más</span>}
+                    </div>
+                  </>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {allEvents.length === 0 && (
         <div className="calendar-empty-state">
           <strong>📅 Todavía no hay eventos financieros.</strong>
           <p>Agrega deudas, ingresos o pagos para llenar tu calendario.</p>
+        </div>
+      )}
+
+      {selectedDate && (
+        <div className="modal-backdrop">
+          <section className="calendar-day-modal">
+            <header>
+              <div>
+                <span>Día seleccionado</span>
+                <h2>{formatDate(selectedDate)}</h2>
+              </div>
+              <button type="button" onClick={() => setSelectedDate(null)}>Cerrar</button>
+            </header>
+            {selectedEvents.length > 0 ? (
+              <div className="calendar-day-events">
+                {selectedEvents.map((event) => {
+                  const meta = eventMeta[event.type] || eventMeta.expense;
+                  return (
+                    <article key={event.id}>
+                      <strong>{meta.emoji} {event.title || meta.label}</strong>
+                      <p>{event.description || meta.label}</p>
+                    </article>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="calendar-empty-day">No hay eventos para este día.</p>
+            )}
+          </section>
         </div>
       )}
 
@@ -75,7 +250,7 @@ export default function FinancialCalendar({ onBack }) {
         ) : (
           upcomingPayments.map((payment, index) => {
             const days = daysUntil(payment.dueDate);
-            const overdue = isOverdue(payment.dueDate);
+            const overdue = payment.dueDate && payment.dueDate < today;
             return (
               <div className={overdue ? "calendar-event overdue" : "calendar-event"} key={`${payment.name}-${payment.dueDate || index}`}>
                 <div>
@@ -92,66 +267,6 @@ export default function FinancialCalendar({ onBack }) {
           })
         )}
       </div>
-
-      {debtPayoffDates.length > 0 && (
-        <div className="calendar-section">
-          <h3>⏳ Final estimado de deuda</h3>
-          {debtPayoffDates.map((debt, index) => (
-            <div className="calendar-event" key={`${debt.debt}-${index}`}>
-              <div>
-                <strong>💳 {debt.debt}</strong>
-                <p>
-                  {debt.periodsRemaining
-                    ? `${debt.periodsRemaining} ${debt.periodLabel} · Total: $${debt.totalEstimatedPaid}`
-                    : "Faltan datos para calcular"}
-                </p>
-              </div>
-              <strong>{debt.payoffDate ? formatDate(debt.payoffDate) : "Sin fecha"}</strong>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {safeData.goalProgress && (
-        <div className="calendar-section">
-          <h3>🎯 Meta: {safeData.goalProgress.name}</h3>
-          <div className="calendar-goal-card">
-            <div>
-              <span>Guardado</span>
-              <strong>${safeData.goalProgress.saved || 0}</strong>
-            </div>
-            {Number(safeData.goalProgress.target || 0) > 0 && (
-              <>
-                <div className="calendar-goal-bar">
-                  <span
-                    style={{
-                      width: `${Math.min(
-                        100,
-                        (Number(safeData.goalProgress.saved || 0) / Number(safeData.goalProgress.target || 1)) * 100
-                      )}%`
-                    }}
-                  />
-                </div>
-                <p>
-                  Meta: ${safeData.goalProgress.target}
-                  {safeData.goalProgress.dailyNeeded ? ` · Necesitas $${safeData.goalProgress.dailyNeeded}/día` : ""}
-                </p>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-
-      {alerts.length > 0 && (
-        <div className="calendar-section">
-          <h3>⚠️ Alertas</h3>
-          {alerts.slice(0, 4).map((alert, index) => (
-            <div className={`calendar-alert ${alert.type || "warning"}`} key={`${alert.message}-${index}`}>
-              {alert.type === "danger" ? "🔴" : "🟡"} {alert.message}
-            </div>
-          ))}
-        </div>
-      )}
     </section>
   );
 }
